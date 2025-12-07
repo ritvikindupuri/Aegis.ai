@@ -1,5 +1,4 @@
 import { useRef } from 'react';
-import GridBackground from '@/components/GridBackground';
 import Navbar from '@/components/Navbar';
 import Hero from '@/components/Hero';
 import Features from '@/components/Features';
@@ -15,11 +14,10 @@ const Index = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-background overflow-x-hidden">
-      <GridBackground />
+    <div className="min-h-screen bg-background">
       <Navbar onStartChat={scrollToAgent} />
       
-      <main className="relative z-10">
+      <main>
         <Hero onStartChat={scrollToAgent} />
         <div id="features">
           <Features />

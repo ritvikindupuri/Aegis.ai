@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Shield, Code, AlertTriangle, Sparkles } from 'lucide-react';
+import { Send, Bot, User, Loader2, Code, AlertTriangle, Sparkles, Scan } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -29,7 +29,7 @@ const SecurityAgent = () => {
   }, [messages]);
 
   const modes = [
-    { id: 'security' as const, label: 'SENTINEL', icon: Shield, description: 'Security Analysis' },
+    { id: 'security' as const, label: 'SENTINEL', icon: Scan, description: 'Security Analysis' },
     { id: 'code_review' as const, label: 'CODEX', icon: Code, description: 'Code Review' },
     { id: 'threat_intel' as const, label: 'AEGIS', icon: AlertTriangle, description: 'Threat Intel' },
     { id: 'general' as const, label: 'ASSIST', icon: Sparkles, description: 'General Help' },
@@ -128,15 +128,15 @@ const SecurityAgent = () => {
   ];
 
   return (
-    <section id="agent" className="relative py-24 px-6">
-      <div className="max-w-5xl mx-auto">
+    <section id="agent" className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h2 className="font-display text-3xl md:text-5xl font-bold text-foreground mb-4">
-            <span className="gradient-text">AI Security Agent</span>
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
+            AI Security Agent
           </h2>
           <p className="text-muted-foreground">
-            Interact with our intelligent security agents for real-time analysis
+            Interact with intelligent security agents for real-time analysis
           </p>
         </div>
 
@@ -147,44 +147,44 @@ const SecurityAgent = () => {
               key={m.id}
               onClick={() => setMode(m.id)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200',
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
                 mode === m.id
-                  ? 'bg-primary text-primary-foreground glow-primary'
-                  : 'glass hover:bg-secondary'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
               )}
             >
               <m.icon className="w-4 h-4" />
-              <span className="font-medium">{m.label}</span>
+              {m.label}
             </button>
           ))}
         </div>
 
         {/* Chat container */}
-        <div className="glass-strong rounded-2xl overflow-hidden">
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
           {/* Messages area */}
-          <div className="h-[500px] overflow-y-auto p-6 space-y-4">
+          <div className="h-[450px] overflow-y-auto p-6 space-y-4">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 animate-pulse-glow">
-                  <Bot className="w-8 h-8 text-primary" />
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                  <Bot className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="font-display text-xl font-semibold text-foreground mb-2">
-                  {modes.find(m => m.id === mode)?.label} Agent Ready
+                <h3 className="text-lg font-semibold text-foreground mb-1">
+                  {modes.find(m => m.id === mode)?.label} Agent
                 </h3>
-                <p className="text-muted-foreground mb-6 max-w-md">
-                  {mode === 'security' && 'I can analyze your application for vulnerabilities and provide remediation guidance.'}
-                  {mode === 'code_review' && 'Paste your code and I\'ll review it for security issues and best practices.'}
-                  {mode === 'threat_intel' && 'Ask me about emerging threats, attack vectors, and security trends.'}
-                  {mode === 'general' && 'How can I help you with your security questions today?'}
+                <p className="text-sm text-muted-foreground mb-6 max-w-md">
+                  {mode === 'security' && 'Analyze your application for vulnerabilities and get remediation guidance.'}
+                  {mode === 'code_review' && 'Paste your code for security review and best practices.'}
+                  {mode === 'threat_intel' && 'Ask about emerging threats, attack vectors, and security trends.'}
+                  {mode === 'general' && 'How can I help you with your security questions?'}
                 </p>
 
                 {/* Quick prompts */}
-                <div className="flex flex-wrap gap-2 justify-center">
+                <div className="flex flex-wrap gap-2 justify-center max-w-lg">
                   {quickPrompts.slice(0, 2).map((prompt) => (
                     <button
                       key={prompt}
                       onClick={() => setInput(prompt)}
-                      className="px-3 py-1.5 text-sm glass rounded-lg hover:bg-secondary transition-colors"
+                      className="px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                     >
                       {prompt}
                     </button>
@@ -196,7 +196,7 @@ const SecurityAgent = () => {
                 <div
                   key={index}
                   className={cn(
-                    'flex gap-3 animate-fade-in',
+                    'flex gap-3',
                     message.role === 'user' ? 'justify-end' : 'justify-start'
                   )}
                 >
@@ -207,24 +207,24 @@ const SecurityAgent = () => {
                   )}
                   <div
                     className={cn(
-                      'max-w-[80%] rounded-2xl px-4 py-3',
+                      'max-w-[80%] rounded-xl px-4 py-3',
                       message.role === 'user'
                         ? 'bg-primary text-primary-foreground'
-                        : 'glass'
+                        : 'bg-muted'
                     )}
                   >
                     {message.role === 'assistant' ? (
-                      <div className="prose prose-invert prose-sm max-w-none">
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
                         <ReactMarkdown
                           components={{
                             code: ({ className, children, ...props }) => {
                               const isInline = !className;
                               return isInline ? (
-                                <code className="bg-secondary/50 px-1.5 py-0.5 rounded text-primary text-sm" {...props}>
+                                <code className="bg-background/50 px-1.5 py-0.5 rounded text-sm" {...props}>
                                   {children}
                                 </code>
                               ) : (
-                                <code className="block bg-background/50 p-3 rounded-lg overflow-x-auto text-sm" {...props}>
+                                <code className="block bg-background p-3 rounded-lg overflow-x-auto text-sm" {...props}>
                                   {children}
                                 </code>
                               );
@@ -240,7 +240,7 @@ const SecurityAgent = () => {
                     )}
                   </div>
                   {message.role === 'user' && (
-                    <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                       <User className="w-4 h-4 text-foreground" />
                     </div>
                   )}
@@ -248,11 +248,11 @@ const SecurityAgent = () => {
               ))
             )}
             {isLoading && messages[messages.length - 1]?.role === 'user' && (
-              <div className="flex gap-3 animate-fade-in">
+              <div className="flex gap-3">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Bot className="w-4 h-4 text-primary" />
                 </div>
-                <div className="glass rounded-2xl px-4 py-3">
+                <div className="bg-muted rounded-xl px-4 py-3">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span className="text-sm">Analyzing...</span>
@@ -272,13 +272,13 @@ const SecurityAgent = () => {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={`Ask ${modes.find(m => m.id === mode)?.label} anything about security...`}
-                className="min-h-[50px] max-h-[150px] resize-none bg-secondary/50 border-border focus:ring-primary"
+                className="min-h-[48px] max-h-[150px] resize-none bg-muted border-0 focus-visible:ring-1 focus-visible:ring-primary"
                 disabled={isLoading}
               />
               <Button
                 type="submit"
                 size="icon"
-                className="h-[50px] w-[50px] bg-primary hover:bg-primary/90"
+                className="h-12 w-12"
                 disabled={!input.trim() || isLoading}
               >
                 {isLoading ? (
