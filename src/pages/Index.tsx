@@ -1,12 +1,38 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useRef } from 'react';
+import GridBackground from '@/components/GridBackground';
+import Navbar from '@/components/Navbar';
+import Hero from '@/components/Hero';
+import Features from '@/components/Features';
+import ThreatDashboard from '@/components/ThreatDashboard';
+import SecurityAgent from '@/components/SecurityAgent';
+import Footer from '@/components/Footer';
 
 const Index = () => {
+  const agentRef = useRef<HTMLDivElement>(null);
+
+  const scrollToAgent = () => {
+    agentRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="relative min-h-screen bg-background overflow-x-hidden">
+      <GridBackground />
+      <Navbar onStartChat={scrollToAgent} />
+      
+      <main className="relative z-10">
+        <Hero onStartChat={scrollToAgent} />
+        <div id="features">
+          <Features />
+        </div>
+        <div id="dashboard">
+          <ThreatDashboard />
+        </div>
+        <div ref={agentRef}>
+          <SecurityAgent />
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 };
