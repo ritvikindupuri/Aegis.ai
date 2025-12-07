@@ -1,0 +1,4 @@
+project_id = "luamoosjnemirijjutig"
+
+[functions.security-agent]
+verify_jwt = false
