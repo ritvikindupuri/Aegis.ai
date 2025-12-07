@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -17,16 +17,16 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass">
-      <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="flex items-center justify-between">
+    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <a href="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:glow-primary transition-all">
-              <Shield className="w-5 h-5 text-primary" />
+          <a href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-sm">A</span>
             </div>
-            <span className="font-display text-xl font-bold text-foreground">
-              AEGIS<span className="text-primary">.ai</span>
+            <span className="text-xl font-semibold text-foreground">
+              AEGIS
             </span>
           </a>
 
@@ -36,7 +36,7 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
               <a
                 key={link.label}
                 href={link.href}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 {link.label}
               </a>
@@ -44,13 +44,13 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
           </div>
 
           {/* CTA */}
-          <div className="hidden md:flex items-center gap-4">
-            <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
+          <div className="hidden md:flex items-center gap-3">
+            <Button variant="ghost" size="sm" className="text-muted-foreground">
               Sign In
             </Button>
             <Button 
               onClick={onStartChat}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              size="sm"
             >
               Get Started
             </Button>
@@ -61,22 +61,22 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
             onClick={() => setIsOpen(!isOpen)}
             className="md:hidden p-2 text-foreground"
           >
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
 
         {/* Mobile menu */}
         <div className={cn(
-          'md:hidden overflow-hidden transition-all duration-300',
-          isOpen ? 'max-h-64 mt-4' : 'max-h-0'
+          'md:hidden overflow-hidden transition-all duration-200',
+          isOpen ? 'max-h-64 pb-4' : 'max-h-0'
         )}>
-          <div className="flex flex-col gap-4 py-4">
+          <div className="flex flex-col gap-2 pt-2">
             {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
                 onClick={() => setIsOpen(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
               >
                 {link.label}
               </a>
@@ -86,7 +86,8 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
                 setIsOpen(false);
                 onStartChat();
               }}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
+              size="sm"
+              className="mt-2"
             >
               Get Started
             </Button>
