@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_sessions: {
+        Row: {
+          agent_mode: string
+          created_at: string
+          id: string
+          messages: Json
+          preview: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_mode: string
+          created_at?: string
+          id?: string
+          messages?: Json
+          preview?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_mode?: string
+          created_at?: string
+          id?: string
+          messages?: Json
+          preview?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
