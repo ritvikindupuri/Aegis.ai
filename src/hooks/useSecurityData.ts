@@ -162,6 +162,7 @@ export function useSecurityData() {
       
       const baseScore = total === 0 ? 100 : (resolved / total) * 100;
       const penalty = (critical * 15) + (high * 10) + (medium * 5) + (low * 2);
+      const calculatedScore = Math.max(0, Math.min(100, baseScore - penalty));
       
       setScoreBreakdown({
         total,
@@ -173,6 +174,12 @@ export function useSecurityData() {
         baseScore: Math.round(baseScore * 100) / 100,
         penalty,
       });
+      
+      // Update the stats with the calculated score so display is consistent with breakdown
+      setStats(prev => ({
+        ...prev,
+        security_score: Math.round(calculatedScore)
+      }));
     }
   };
 
