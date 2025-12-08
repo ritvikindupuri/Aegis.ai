@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { Button } from '@/components/ui/button';
@@ -47,6 +47,19 @@ const ThreatDashboard = () => {
     action: null,
     notes: ''
   });
+  const [expandedVulns, setExpandedVulns] = useState<Set<string>>(new Set());
+
+  const toggleVulnExpanded = (id: string) => {
+    setExpandedVulns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
 
   const scanTypes = [
     { id: 'code' as const, label: 'Code', icon: Code, placeholder: 'Paste code to analyze for vulnerabilities...' },
@@ -683,12 +696,35 @@ const ThreatDashboard = () => {
                     false_positive: 'False Positive',
                     detected: 'Detected'
                   };
+                  const isExpanded = expandedVulns.has(vuln.id);
+                  const hasDetails = vuln.description || vuln.remediation || vuln.location;
+                  
                   return (
                     <div
                       key={vuln.id}
-                      className="p-3 rounded-lg border border-border bg-background hover:bg-muted/30 transition-colors"
+                      className="rounded-lg border border-border bg-background overflow-hidden"
                     >
-                      <div className="flex items-center gap-3">
+                      {/* Main row */}
+                      <div 
+                        className={cn(
+                          "p-3 flex items-center gap-3 transition-colors",
+                          hasDetails && "cursor-pointer hover:bg-muted/30"
+                        )}
+                        onClick={() => hasDetails && toggleVulnExpanded(vuln.id)}
+                      >
+                        {/* Expand/collapse indicator */}
+                        {hasDetails ? (
+                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                            {isExpanded ? (
+                              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                            )}
+                          </div>
+                        ) : (
+                          <div className="w-4" />
+                        )}
+                        
                         <div className={cn(
                           'w-8 h-8 rounded flex items-center justify-center flex-shrink-0',
                           severity.bg
@@ -696,7 +732,16 @@ const ThreatDashboard = () => {
                           <AlertTriangle className={cn("w-4 h-4", severity.text)} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-foreground truncate">{vuln.name}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-foreground truncate">{vuln.name}</span>
+                            {/* NVD Enriched Badge */}
+                            {vuln.cve_id && (
+                              <span className="flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
+                                <Shield className="w-2.5 h-2.5" />
+                                NVD
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             <span className={cn(
                               'text-[10px] font-medium px-1.5 py-0.5 rounded uppercase',
@@ -710,9 +755,11 @@ const ThreatDashboard = () => {
                                 href={`https://nvd.nist.gov/vuln/detail/${vuln.cve_id}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
                               >
                                 {vuln.cve_id}
+                                <ExternalLink className="w-2.5 h-2.5" />
                               </a>
                             )}
                             {vuln.cvss_score !== null && (
@@ -729,7 +776,7 @@ const ThreatDashboard = () => {
                             <span className="text-[10px] text-muted-foreground">{formatTimestamp(vuln.created_at)}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           {vuln.status !== 'detected' && (
                             <span className={cn(
                               'text-[10px] font-medium px-1.5 py-0.5 rounded',
@@ -768,9 +815,59 @@ const ThreatDashboard = () => {
                           </DropdownMenu>
                         </div>
                       </div>
+                      
+                      {/* Expandable details panel */}
+                      {isExpanded && hasDetails && (
+                        <div className="px-4 pb-4 pt-2 border-t border-border bg-muted/20 space-y-3">
+                          {vuln.description && (
+                            <div>
+                              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Description</div>
+                              <p className="text-xs text-foreground leading-relaxed">{vuln.description}</p>
+                            </div>
+                          )}
+                          
+                          {vuln.location && (
+                            <div>
+                              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Location</div>
+                              <code className="text-xs font-mono text-foreground bg-muted px-2 py-1 rounded block">{vuln.location}</code>
+                            </div>
+                          )}
+                          
+                          {vuln.remediation && (
+                            <div>
+                              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Remediation</div>
+                              <div className="text-xs text-foreground leading-relaxed p-2 rounded bg-success/5 border border-success/20">
+                                {vuln.remediation}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {vuln.cve_id && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <a
+                                href={`https://nvd.nist.gov/vuln/detail/${vuln.cve_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                              >
+                                <Shield className="w-3 h-3" />
+                                View full NVD details for {vuln.cve_id}
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
                       {/* Show notes if present */}
-                      {vuln.notes && (
-                        <div className="mt-2 pl-11 text-xs text-muted-foreground italic border-l-2 border-border ml-4">
+                      {vuln.notes && !isExpanded && (
+                        <div className="px-4 pb-3 text-xs text-muted-foreground italic border-t border-border pt-2">
+                          "{vuln.notes}"
+                        </div>
+                      )}
+                      {vuln.notes && isExpanded && (
+                        <div className="px-4 pb-3 text-xs text-muted-foreground italic">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide block mb-1 not-italic">Notes</span>
                           "{vuln.notes}"
                         </div>
                       )}
