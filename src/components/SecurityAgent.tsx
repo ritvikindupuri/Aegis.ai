@@ -49,25 +49,40 @@ const SecurityAgent = () => {
       id: 'security' as const, 
       label: 'SENTINEL', 
       icon: Scan, 
-      description: 'Security Analysis',
+      description: 'Quick Security Q&A',
       color: 'text-destructive',
-      features: ['Vulnerability scanning', 'OWASP Top 10 analysis', 'Security recommendations']
+      features: ['Fast answers', 'Security concepts', 'Quick vulnerability checks'],
+      examples: [
+        'What is SQL injection?',
+        'Is this query safe: SELECT * FROM users WHERE id = ?',
+        'How do I prevent XSS attacks?'
+      ]
     },
     { 
       id: 'code_review' as const, 
       label: 'CODEX', 
       icon: Code, 
-      description: 'Code Review',
+      description: 'Deep Code Audit',
       color: 'text-primary',
-      features: ['Code security review', 'Best practices', 'Fix suggestions']
+      features: ['Full code review', 'Detailed fixes', 'Refactoring guidance'],
+      examples: [
+        'Review this auth function and fix all security issues: [paste 50+ lines]',
+        'Audit this API endpoint for vulnerabilities: [paste entire handler]',
+        'Rewrite this code following security best practices: [paste code]'
+      ]
     },
     { 
       id: 'threat_intel' as const, 
       label: 'AEGIS', 
       icon: AlertTriangle, 
-      description: 'Threat Intel',
+      description: 'Threat Intelligence',
       color: 'text-warning',
-      features: ['Threat intelligence', 'Attack vectors', 'Mitigation strategies']
+      features: ['CVE research', 'Attack analysis', 'Mitigation strategies'],
+      examples: [
+        'Tell me about CVE-2024-1234',
+        'How do ransomware attacks work?',
+        'What are the latest Log4j vulnerabilities?'
+      ]
     },
     { 
       id: 'general' as const, 
@@ -75,7 +90,12 @@ const SecurityAgent = () => {
       icon: Sparkles, 
       description: 'General Help',
       color: 'text-success',
-      features: ['General questions', 'Security concepts', 'Learning resources']
+      features: ['Learning resources', 'Career advice', 'Tool recommendations'],
+      examples: [
+        'What certifications should I get for security?',
+        'Best tools for penetration testing?',
+        'How do I start a career in cybersecurity?'
+      ]
     },
   ];
 
@@ -388,7 +408,7 @@ const SecurityAgent = () => {
           {/* Messages area */}
           <div className="h-[380px] overflow-y-auto p-4 space-y-3">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center">
+              <div className="h-full flex flex-col items-center justify-center text-center px-4">
                 <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center mb-3", 
                   mode === 'security' ? 'bg-destructive/10' :
                   mode === 'code_review' ? 'bg-primary/10' :
@@ -399,12 +419,23 @@ const SecurityAgent = () => {
                 <h3 className="text-sm font-medium text-foreground mb-1">
                   {currentMode.label}
                 </h3>
-                <p className="text-xs text-muted-foreground max-w-sm">
-                  {mode === 'security' && 'Ask about security threats, OWASP Top 10, or paste code snippets for analysis.'}
-                  {mode === 'code_review' && 'Paste code snippets for security review and remediation guidance.'}
-                  {mode === 'threat_intel' && 'Ask about CVEs, attack vectors, and security trends.'}
-                  {mode === 'general' && 'Ask any security-related questions.'}
+                <p className="text-xs text-muted-foreground max-w-sm mb-4">
+                  {currentMode.description}
                 </p>
+                
+                {/* Example prompts */}
+                <div className="w-full max-w-md space-y-2">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Try asking:</p>
+                  {currentMode.examples?.map((example, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setInput(example)}
+                      className="w-full text-left p-2.5 rounded-lg bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors border border-transparent hover:border-border"
+                    >
+                      &quot;{example}&quot;
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
               messages.map((message, index) => (
