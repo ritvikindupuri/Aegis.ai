@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Code, AlertTriangle, Sparkles, Scan, Trash2, History, MessageSquare, X } from 'lucide-react';
+import { Send, Bot, User, Loader2, Code, AlertTriangle, Sparkles, Scan, Trash2, History, MessageSquare, X, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -14,32 +16,22 @@ interface Message {
 
 interface ChatSession {
   id: string;
+  agent_mode: string;
   messages: Message[];
-  createdAt: number;
-  preview: string;
+  preview: string | null;
+  created_at: string;
 }
 
 type AgentMode = 'security' | 'code_review' | 'threat_intel' | 'general';
 
-const STORAGE_KEY = 'aegis_chat_sessions';
-
 const SecurityAgent = () => {
-  const [sessions, setSessions] = useState<Record<AgentMode, ChatSession[]>>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return { security: [], code_review: [], threat_intel: [], general: [] };
-      }
-    }
-    return { security: [], code_review: [], threat_intel: [], general: [] };
-  });
-  
+  const { user } = useAuth();
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [mode, setMode] = useState<AgentMode>('security');
   const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -99,48 +91,81 @@ const SecurityAgent = () => {
     },
   ];
 
+  // Fetch sessions for current mode
+  const fetchSessions = async () => {
+    if (!user) return;
+    
+    setIsLoadingSessions(true);
+    const { data, error } = await supabase
+      .from('chat_sessions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('agent_mode', mode)
+      .order('updated_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching sessions:', error);
+    } else if (data) {
+      // Cast the messages from Json to Message[]
+      const typedSessions: ChatSession[] = data.map(session => ({
+        ...session,
+        messages: (session.messages as unknown as Message[]) || []
+      }));
+      setSessions(typedSessions);
+    }
+    setIsLoadingSessions(false);
+  };
+
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-  }, [sessions]);
+    if (user) {
+      fetchSessions();
+    } else {
+      setSessions([]);
+    }
+  }, [user, mode]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
-    // Load last session for current mode or start fresh
-    const modeSessions = sessions[mode];
-    if (modeSessions.length > 0 && !currentSessionId) {
-      const lastSession = modeSessions[modeSessions.length - 1];
-      setCurrentSessionId(lastSession.id);
-      setMessages(lastSession.messages);
-    } else if (!currentSessionId) {
-      setMessages([]);
-    }
+    // Reset messages when changing mode
+    setCurrentSessionId(null);
+    setMessages([]);
+    setShowHistory(false);
   }, [mode]);
 
-  const saveSession = (newMessages: Message[]) => {
-    if (newMessages.length === 0) return;
+  const saveSession = async (newMessages: Message[]) => {
+    if (!user || newMessages.length === 0) return;
     
-    const sessionId = currentSessionId || Date.now().toString();
     const preview = newMessages[0]?.content.slice(0, 50) || 'New session';
     
-    setSessions(prev => {
-      const modeSessions = prev[mode].filter(s => s.id !== sessionId);
-      const updatedSession: ChatSession = {
-        id: sessionId,
-        messages: newMessages,
-        createdAt: parseInt(sessionId),
-        preview
-      };
-      return {
-        ...prev,
-        [mode]: [...modeSessions, updatedSession]
-      };
-    });
-    
-    if (!currentSessionId) {
-      setCurrentSessionId(sessionId);
+    if (currentSessionId) {
+      // Update existing session
+      await supabase
+        .from('chat_sessions')
+        .update({ 
+          messages: newMessages as any,
+          preview 
+        })
+        .eq('id', currentSessionId);
+    } else {
+      // Create new session
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .insert({
+          user_id: user.id,
+          agent_mode: mode,
+          messages: newMessages as any,
+          preview
+        })
+        .select()
+        .single();
+      
+      if (!error && data) {
+        setCurrentSessionId(data.id);
+        fetchSessions();
+      }
     }
   };
 
@@ -156,27 +181,43 @@ const SecurityAgent = () => {
     setShowHistory(false);
   };
 
-  const deleteSession = (sessionId: string, e: React.MouseEvent) => {
+  const deleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSessions(prev => ({
-      ...prev,
-      [mode]: prev[mode].filter(s => s.id !== sessionId)
-    }));
-    if (currentSessionId === sessionId) {
-      setCurrentSessionId(null);
-      setMessages([]);
+    
+    const { error } = await supabase
+      .from('chat_sessions')
+      .delete()
+      .eq('id', sessionId);
+    
+    if (error) {
+      toast.error('Failed to delete session');
+    } else {
+      if (currentSessionId === sessionId) {
+        setCurrentSessionId(null);
+        setMessages([]);
+      }
+      fetchSessions();
+      toast.success('Session deleted');
     }
-    toast.success('Session deleted');
   };
 
-  const clearAllHistory = () => {
-    setSessions(prev => ({
-      ...prev,
-      [mode]: []
-    }));
-    setCurrentSessionId(null);
-    setMessages([]);
-    toast.success('All history cleared');
+  const clearAllHistory = async () => {
+    if (!user) return;
+    
+    const { error } = await supabase
+      .from('chat_sessions')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('agent_mode', mode);
+    
+    if (error) {
+      toast.error('Failed to clear history');
+    } else {
+      setSessions([]);
+      setCurrentSessionId(null);
+      setMessages([]);
+      toast.success('All history cleared');
+    }
   };
 
   const streamChat = async (userMessage: string) => {
@@ -271,12 +312,49 @@ const SecurityAgent = () => {
   };
 
   const currentMode = modes.find(m => m.id === mode)!;
-  const modeSessions = sessions[mode];
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  // Show sign in prompt if not authenticated
+  if (!user) {
+    return (
+      <section id="agent" className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-semibold text-foreground mb-1">
+              AI Security Agents
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Specialized agents for different security tasks
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <LogIn className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Sign in to use AI Agents
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+              Create an account or sign in to access our AI security agents and save your chat history.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <a href="/auth">
+                <Button>Sign in</Button>
+              </a>
+              <a href="/auth">
+                <Button variant="outline">Create account</Button>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="agent" className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
@@ -296,11 +374,7 @@ const SecurityAgent = () => {
           {modes.map((m) => (
             <button
               key={m.id}
-              onClick={() => {
-                setMode(m.id);
-                setCurrentSessionId(null);
-                setShowHistory(false);
-              }}
+              onClick={() => setMode(m.id)}
               className={cn(
                 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                 mode === m.id
@@ -342,7 +416,7 @@ const SecurityAgent = () => {
                 className="h-8 px-2"
               >
                 <History className="w-4 h-4 mr-1" />
-                <span className="text-xs">History ({modeSessions.length})</span>
+                <span className="text-xs">History ({sessions.length})</span>
               </Button>
               <Button
                 variant="ghost"
@@ -361,7 +435,7 @@ const SecurityAgent = () => {
             <div className="border-b border-border bg-background p-4">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-medium">Session History</h4>
-                {modeSessions.length > 0 && (
+                {sessions.length > 0 && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -373,11 +447,15 @@ const SecurityAgent = () => {
                   </Button>
                 )}
               </div>
-              {modeSessions.length === 0 ? (
+              {isLoadingSessions ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : sessions.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">No history yet</p>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {[...modeSessions].reverse().map((session) => (
+                  {sessions.map((session) => (
                     <div
                       key={session.id}
                       onClick={() => loadSession(session)}
@@ -388,7 +466,7 @@ const SecurityAgent = () => {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm truncate">{session.preview}...</p>
-                        <p className="text-[10px] text-muted-foreground">{formatTime(session.createdAt)}</p>
+                        <p className="text-[10px] text-muted-foreground">{formatTime(session.created_at)}</p>
                       </div>
                       <Button
                         variant="ghost"
