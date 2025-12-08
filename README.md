@@ -20,13 +20,13 @@ Dynamic Security Score: Real-time 0-**100** risk scoring based on unresolved vul
 
 ## 🏗️ System Architecture Overview
 
-![AEGIS.ai Full System Architecture](https://i.imgur.com/Hwm6Wg4.png)
+![AEGIS.ai Full System Architecture](https://i.imgur.com/VtiraIW.png)
 
 **Figure 1 — AEGIS.ai Full-Stack Architecture:**  
-This diagram illustrates the complete end-to-end architecture of the AEGIS.ai platform, including the React + Vite client layer, Supabase Edge Functions application layer, PostgreSQL persistence layer, Lovable AI Gateway intelligence layer (Gemini 2.5 Flash & GPT-5), and real-time CVE enrichment via the NVD API.
+This diagram illustrates the end-to-end architecture of the AEGIS.ai platform, including the React + Vite client layer, Supabase Edge Functions for application logic, PostgreSQL for persistence, the Lovable AI Gateway (Gemini 2.5 Flash & GPT-5), and real-time CVE enrichment via the NVD API.
 
 
- Features
+## Features 
 
 ## Intelligent Security Scanner
 
