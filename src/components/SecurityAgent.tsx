@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Code, AlertTriangle, Sparkles, Scan, Trash2, History, MessageSquare, X, LogIn } from 'lucide-react';
+import { Send, Bot, User, Loader2, Code, AlertTriangle, Sparkles, Scan, Trash2, History, MessageSquare, X, LogIn, Upload, FileCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,8 @@ const SecurityAgent = () => {
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [mode, setMode] = useState<AgentMode>('security');
   const [showHistory, setShowHistory] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const modes = [
@@ -597,10 +599,67 @@ const SecurityAgent = () => {
 
           {/* Input area */}
           <form onSubmit={handleSubmit} className="p-3 border-t border-border">
+            {/* File upload for CODEX mode */}
+            {mode === 'code_review' && (
+              <div className="mb-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.go,.rb,.php,.rs,.swift,.kt,.vue,.svelte,.html,.css,.sql,.sh,.yml,.yaml,.json,.xml,.md,.txt"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 500 * 1024) {
+                        toast.error('File too large. Maximum size is 500KB.');
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const content = event.target?.result as string;
+                        setInput(`Review this code from ${file.name}:\n\n\`\`\`\n${content}\n\`\`\``);
+                        setUploadedFileName(file.name);
+                      };
+                      reader.readAsText(file);
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border bg-background hover:bg-muted/50 transition-colors text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  {uploadedFileName ? (
+                    <span className="flex items-center gap-1.5">
+                      <FileCode className="w-3.5 h-3.5 text-primary" />
+                      {uploadedFileName}
+                      <X 
+                        className="w-3 h-3 text-muted-foreground hover:text-destructive cursor-pointer" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUploadedFileName(null);
+                          setInput('');
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }}
+                      />
+                    </span>
+                  ) : (
+                    'Upload code file for review (max 500KB)'
+                  )}
+                </button>
+              </div>
+            )}
             <div className="flex gap-2">
               <Textarea
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  if (uploadedFileName && !e.target.value.includes(uploadedFileName)) {
+                    setUploadedFileName(null);
+                  }
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder={`Ask ${currentMode.label}...`}
                 className="min-h-[44px] max-h-[120px] resize-none bg-muted border-0 text-sm focus-visible:ring-1 focus-visible:ring-primary"
