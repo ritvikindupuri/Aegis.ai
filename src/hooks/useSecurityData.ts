@@ -9,6 +9,17 @@ interface SecurityStats {
   total_scans: number;
 }
 
+interface ScoreBreakdown {
+  total: number;
+  resolved: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  baseScore: number;
+  penalty: number;
+}
+
 interface StatsChanges {
   threats_blocked: string;
   vulnerabilities_fixed: string;
@@ -50,6 +61,17 @@ export function useSecurityData() {
     avg_response_time_ms: 0,
     security_score: 100,
     total_scans: 0,
+  });
+
+  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown>({
+    total: 0,
+    resolved: 0,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    baseScore: 100,
+    penalty: 0,
   });
 
   const [changes, setChanges] = useState<StatsChanges>({
@@ -128,6 +150,28 @@ export function useSecurityData() {
 
     if (data) {
       setVulnerabilities(data as Vulnerability[]);
+      
+      // Calculate score breakdown from vulnerability data
+      const total = data.filter(v => v.status !== 'false_positive').length;
+      const resolved = data.filter(v => v.status === 'resolved').length;
+      const critical = data.filter(v => v.status === 'detected' && v.severity === 'critical').length;
+      const high = data.filter(v => v.status === 'detected' && v.severity === 'high').length;
+      const medium = data.filter(v => v.status === 'detected' && v.severity === 'medium').length;
+      const low = data.filter(v => v.status === 'detected' && v.severity === 'low').length;
+      
+      const baseScore = total === 0 ? 100 : (resolved / total) * 100;
+      const penalty = (critical * 15) + (high * 10) + (medium * 5) + (low * 2);
+      
+      setScoreBreakdown({
+        total,
+        resolved,
+        critical,
+        high,
+        medium,
+        low,
+        baseScore: Math.round(baseScore * 100) / 100,
+        penalty,
+      });
     }
   };
 
@@ -246,6 +290,7 @@ export function useSecurityData() {
   return {
     stats,
     changes,
+    scoreBreakdown,
     vulnerabilities,
     scans,
     isLoading,
