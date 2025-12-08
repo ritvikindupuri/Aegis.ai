@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.code-scanner]
 verify_jwt = false
+
+[functions.nvd-cve-lookup]
+verify_jwt = false
