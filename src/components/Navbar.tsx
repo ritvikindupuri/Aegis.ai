@@ -20,14 +20,16 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <a href="/" className="flex items-center gap-2 group">
-            <div className="relative">
-              <div className="w-7 h-7 rounded-md bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-xs tracking-tight">Æ</span>
+          <a href="/" className="flex items-center gap-2.5 group">
+            <div className="relative w-8 h-8">
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary via-primary/80 to-primary/60 opacity-90" />
+              <div className="absolute inset-[2px] rounded-[6px] bg-background/95" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-primary font-black text-sm tracking-tighter">Æ</span>
               </div>
             </div>
-            <span className="text-lg font-semibold tracking-tight text-foreground">
-              aegis<span className="text-primary">.ai</span>
+            <span className="text-lg font-bold tracking-tight text-foreground">
+              AEGIS<span className="text-primary font-light">.ai</span>
             </span>
           </a>
 

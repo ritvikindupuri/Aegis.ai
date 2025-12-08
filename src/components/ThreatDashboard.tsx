@@ -89,11 +89,16 @@ const ThreatDashboard = () => {
   };
 
   const handleStatusChange = async (id: string, newStatus: 'resolved' | 'analyzing' | 'false_positive') => {
+    const statusLabels = { resolved: 'Resolved', analyzing: 'Analyzing', false_positive: 'False Positive' };
     const success = await updateVulnerabilityStatus(id, newStatus);
     if (success) {
-      toast.success(`Status updated`);
+      toast.success(`Marked as ${statusLabels[newStatus]}`, {
+        description: newStatus === 'resolved' ? 'This vulnerability has been fixed.' :
+                     newStatus === 'false_positive' ? 'This was a false detection.' :
+                     'Currently being investigated.'
+      });
     } else {
-      toast.error('Failed to update');
+      toast.error('Failed to update status');
     }
   };
 

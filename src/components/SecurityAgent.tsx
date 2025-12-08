@@ -400,9 +400,9 @@ const SecurityAgent = () => {
                   {currentMode.label}
                 </h3>
                 <p className="text-xs text-muted-foreground max-w-sm">
-                  {mode === 'security' && 'Analyze applications for vulnerabilities and get remediation guidance.'}
-                  {mode === 'code_review' && 'Paste code for security review and best practices.'}
-                  {mode === 'threat_intel' && 'Ask about threats, attack vectors, and security trends.'}
+                  {mode === 'security' && 'Ask about security threats, OWASP Top 10, or paste code snippets for analysis.'}
+                  {mode === 'code_review' && 'Paste code snippets for security review and remediation guidance.'}
+                  {mode === 'threat_intel' && 'Ask about CVEs, attack vectors, and security trends.'}
                   {mode === 'general' && 'Ask any security-related questions.'}
                 </p>
               </div>
