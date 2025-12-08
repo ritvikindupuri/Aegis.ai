@@ -1,6 +1,14 @@
 import { useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface NavbarProps {
   onStartChat: () => void;
@@ -8,6 +16,7 @@ interface NavbarProps {
 
 const Navbar = ({ onStartChat }: NavbarProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
   const navLinks = [
     { label: 'Features', href: '#features' },
@@ -54,6 +63,29 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
             >
               Try it →
             </a>
+            
+            {/* Auth button */}
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8">
+                    {user.email?.split('@')[0]}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={signOut}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <a href="/auth">
+                <Button variant="outline" size="sm" className="h-8">
+                  Sign in
+                </Button>
+              </a>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -68,7 +100,7 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
         {/* Mobile menu */}
         <div className={cn(
           'md:hidden overflow-hidden transition-all duration-200',
-          isOpen ? 'max-h-48 pb-4' : 'max-h-0'
+          isOpen ? 'max-h-64 pb-4' : 'max-h-0'
         )}>
           <div className="flex flex-col gap-1 pt-2">
             {navLinks.map((link) => (
@@ -92,6 +124,28 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
             >
               Try it →
             </a>
+            
+            {/* Mobile auth */}
+            {user ? (
+              <button
+                onClick={() => {
+                  signOut();
+                  setIsOpen(false);
+                }}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2 text-left flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out
+              </button>
+            ) : (
+              <a
+                href="/auth"
+                onClick={() => setIsOpen(false)}
+                className="text-sm font-medium text-primary py-2"
+              >
+                Sign in
+              </a>
+            )}
           </div>
         </div>
       </div>
