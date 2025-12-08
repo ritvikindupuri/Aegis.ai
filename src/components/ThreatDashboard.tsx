@@ -39,7 +39,7 @@ interface StatusDialogState {
 }
 
 const ThreatDashboard = () => {
-  const { stats, changes, vulnerabilities, isLoading, updateVulnerabilityStatus } = useSecurityData();
+  const { stats, changes, scoreBreakdown, vulnerabilities, isLoading, updateVulnerabilityStatus } = useSecurityData();
   const [scanProgress, setScanProgress] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [input, setInput] = useState('');
@@ -222,7 +222,7 @@ const ThreatDashboard = () => {
     { label: 'Threats Detected', value: stats.threats_blocked.toLocaleString(), change: changes.threats_blocked, icon: AlertTriangle, color: 'text-destructive' },
     { label: 'Fixed', value: stats.vulnerabilities_fixed.toLocaleString(), change: changes.vulnerabilities_fixed, icon: CheckCircle, color: 'text-success' },
     { label: 'Response', value: `${stats.avg_response_time_ms}ms`, change: changes.avg_response_time_ms, icon: Clock, color: 'text-warning' },
-    { label: 'AI-Threat Score', value: `${stats.security_score}`, change: changes.security_score, icon: TrendingUp, color: 'text-primary', hasTooltip: true },
+    { label: 'Security Score', value: `${stats.security_score}`, change: changes.security_score, icon: TrendingUp, color: 'text-primary', hasTooltip: true },
   ];
 
   const currentScanType = scanTypes.find(s => s.id === scanType);
@@ -306,18 +306,19 @@ const ThreatDashboard = () => {
                         <TooltipTrigger asChild>
                           <Info className="w-3 h-3 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
-                        <TooltipContent className="max-w-[280px] p-3">
-                          <p className="text-xs font-semibold mb-2">AI-Threat Score</p>
-                          <div className="text-xs space-y-1.5 text-muted-foreground">
-                            <p><span className="font-medium text-foreground">Base score:</span> Starts at 100 if no vulnerabilities, otherwise = (resolved / total) × 100</p>
-                            <p className="font-medium text-foreground">Severity penalties for unresolved:</p>
-                            <ul className="pl-3 space-y-0.5">
-                              <li>• Critical: -15 points each</li>
-                              <li>• High: -10 points each</li>
-                              <li>• Medium: -5 points each</li>
-                              <li>• Low: -2 points each</li>
+                        <TooltipContent className="max-w-[300px] p-3">
+                          <p className="text-xs font-semibold mb-2">Security Score Calculation</p>
+                          <div className="text-xs space-y-1.5 text-muted-foreground font-mono">
+                            <p>Base: ({scoreBreakdown.resolved} resolved / {scoreBreakdown.total} total) × 100 = <span className="text-foreground font-semibold">{scoreBreakdown.baseScore.toFixed(1)}</span></p>
+                            <p className="text-foreground font-medium">Penalties:</p>
+                            <ul className="pl-2 space-y-0.5">
+                              {scoreBreakdown.critical > 0 && <li>• {scoreBreakdown.critical} critical × 15 = -{scoreBreakdown.critical * 15}</li>}
+                              {scoreBreakdown.high > 0 && <li>• {scoreBreakdown.high} high × 10 = -{scoreBreakdown.high * 10}</li>}
+                              {scoreBreakdown.medium > 0 && <li>• {scoreBreakdown.medium} medium × 5 = -{scoreBreakdown.medium * 5}</li>}
+                              {scoreBreakdown.low > 0 && <li>• {scoreBreakdown.low} low × 2 = -{scoreBreakdown.low * 2}</li>}
+                              {scoreBreakdown.penalty === 0 && <li className="text-success">No penalties</li>}
                             </ul>
-                            <p><span className="font-medium text-foreground">Final score:</span> Base minus penalties (0-100)</p>
+                            <p className="pt-1 border-t border-border">Final: {scoreBreakdown.baseScore.toFixed(1)} - {scoreBreakdown.penalty} = <span className="text-foreground font-semibold">{stats.security_score}</span></p>
                           </div>
                         </TooltipContent>
                       </Tooltip>
@@ -338,6 +339,103 @@ const ThreatDashboard = () => {
               </div>
             ))}
           </TooltipProvider>
+        </div>
+
+        {/* Score Breakdown Panel */}
+        <div className="mb-8 p-4 rounded-lg border border-border bg-card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium text-foreground text-sm flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              Score Breakdown
+            </h3>
+            <span className={cn(
+              'text-lg font-bold',
+              stats.security_score >= 80 ? 'text-success' :
+              stats.security_score >= 50 ? 'text-warning' : 'text-destructive'
+            )}>
+              {stats.security_score}/100
+            </span>
+          </div>
+          
+          {/* Visual progress bar */}
+          <div className="mb-4">
+            <div className="h-3 bg-muted rounded-full overflow-hidden">
+              <div 
+                className={cn(
+                  "h-full transition-all duration-500 rounded-full",
+                  stats.security_score >= 80 ? 'bg-success' :
+                  stats.security_score >= 50 ? 'bg-warning' : 'bg-destructive'
+                )}
+                style={{ width: `${stats.security_score}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Breakdown grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            {/* Base calculation */}
+            <div className="p-3 rounded-lg bg-muted/50">
+              <div className="text-muted-foreground mb-1">Base Score</div>
+              <div className="font-mono">
+                <span className="text-foreground font-semibold">{scoreBreakdown.resolved}</span>
+                <span className="text-muted-foreground"> / {scoreBreakdown.total} resolved</span>
+              </div>
+              <div className="text-primary font-semibold mt-1">= {scoreBreakdown.baseScore.toFixed(1)}</div>
+            </div>
+
+            {/* Severity counts */}
+            <div className="p-3 rounded-lg bg-muted/50">
+              <div className="text-muted-foreground mb-1">Unresolved by Severity</div>
+              <div className="space-y-0.5 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-destructive">Critical:</span>
+                  <span className="text-foreground">{scoreBreakdown.critical}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-warning">High:</span>
+                  <span className="text-foreground">{scoreBreakdown.high}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-warning/70">Medium:</span>
+                  <span className="text-foreground">{scoreBreakdown.medium}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Low:</span>
+                  <span className="text-foreground">{scoreBreakdown.low}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Penalties */}
+            <div className="p-3 rounded-lg bg-muted/50">
+              <div className="text-muted-foreground mb-1">Penalties Applied</div>
+              <div className="space-y-0.5 font-mono text-destructive">
+                {scoreBreakdown.critical > 0 && <div>-{scoreBreakdown.critical * 15} (critical)</div>}
+                {scoreBreakdown.high > 0 && <div>-{scoreBreakdown.high * 10} (high)</div>}
+                {scoreBreakdown.medium > 0 && <div>-{scoreBreakdown.medium * 5} (medium)</div>}
+                {scoreBreakdown.low > 0 && <div>-{scoreBreakdown.low * 2} (low)</div>}
+                {scoreBreakdown.penalty === 0 && <div className="text-success">None</div>}
+              </div>
+              <div className="text-destructive font-semibold mt-1 border-t border-border pt-1">
+                Total: -{scoreBreakdown.penalty}
+              </div>
+            </div>
+
+            {/* Final calculation */}
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+              <div className="text-muted-foreground mb-1">Final Calculation</div>
+              <div className="font-mono text-foreground">
+                <div>{scoreBreakdown.baseScore.toFixed(1)} - {scoreBreakdown.penalty}</div>
+              </div>
+              <div className={cn(
+                "text-lg font-bold mt-1",
+                stats.security_score >= 80 ? 'text-success' :
+                stats.security_score >= 50 ? 'text-warning' : 'text-destructive'
+              )}>
+                = {stats.security_score}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
