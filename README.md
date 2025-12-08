@@ -52,7 +52,7 @@ A dedicated firewall for Generative AI inputs, capable of detecting sophisticate
 
 A weighted scoring algorithm that adjusts in real-time as vulnerabilities are detected or resolved.
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 -   **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui
     
