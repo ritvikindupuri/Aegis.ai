@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import Navbar from '@/components/Navbar';
 import Hero from '@/components/Hero';
 import Features from '@/components/Features';
@@ -7,25 +6,19 @@ import SecurityAgent from '@/components/SecurityAgent';
 import Footer from '@/components/Footer';
 
 const Index = () => {
-  const agentRef = useRef<HTMLDivElement>(null);
-
-  const scrollToAgent = () => {
-    agentRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      <Navbar onStartChat={scrollToAgent} />
+      <Navbar />
       
       <main>
-        <Hero onStartChat={scrollToAgent} />
+        <Hero />
         <div id="features">
           <Features />
         </div>
         <div id="dashboard">
           <ThreatDashboard />
         </div>
-        <div ref={agentRef}>
+        <div>
           <SecurityAgent />
         </div>
       </main>
