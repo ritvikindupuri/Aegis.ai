@@ -483,6 +483,9 @@ const ThreatDashboard = () => {
                 <span className="text-muted-foreground"> / {scoreBreakdown.total}</span>
                 <span className="text-foreground">) × 100</span>
               </div>
+              <div className="text-[10px] text-muted-foreground mt-1">
+                ({scoreBreakdown.resolved} resolved ÷ {scoreBreakdown.total} total)
+              </div>
               <div className="text-primary font-bold text-lg mt-1">= {scoreBreakdown.baseScore.toFixed(1)}</div>
             </div>
 
