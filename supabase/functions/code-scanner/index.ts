@@ -429,7 +429,9 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
         severity: ['critical', 'high', 'medium', 'low', 'info'].includes(v.severity?.toLowerCase()) 
           ? v.severity.toLowerCase() 
           : 'medium',
-        category: v.category || scanType === 'llm_protection' ? 'LLM Security' : 'General',
+        category: v.category || (scanType === 'llm_protection' ? 'LLM Security' : 
+                                 scanType === 'dependency' ? 'Dependency' : 
+                                 scanType === 'code' ? 'Code Analysis' : 'General'),
         location: v.location || null,
         remediation: v.remediation || null,
         cve_id: v.cve_id || null,
