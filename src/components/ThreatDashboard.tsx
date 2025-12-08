@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, Loader2, Search, Code, FileJson, MessageSquare, Zap, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 
 type ScanType = 'code' | 'dependency' | 'llm_protection';
@@ -216,7 +222,7 @@ const ThreatDashboard = () => {
     { label: 'Threats Detected', value: stats.threats_blocked.toLocaleString(), change: changes.threats_blocked, icon: AlertTriangle, color: 'text-destructive' },
     { label: 'Fixed', value: stats.vulnerabilities_fixed.toLocaleString(), change: changes.vulnerabilities_fixed, icon: CheckCircle, color: 'text-success' },
     { label: 'Response', value: `${stats.avg_response_time_ms}ms`, change: changes.avg_response_time_ms, icon: Clock, color: 'text-warning' },
-    { label: 'Score', value: `${stats.security_score}`, change: changes.security_score, icon: TrendingUp, color: 'text-primary' },
+    { label: 'Score', value: `${stats.security_score}`, change: changes.security_score, icon: TrendingUp, color: 'text-primary', hasTooltip: true },
   ];
 
   const currentScanType = scanTypes.find(s => s.id === scanType);
@@ -286,27 +292,41 @@ const ThreatDashboard = () => {
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-          {statCards.map((stat) => (
-            <div 
-              key={stat.label} 
-              className="p-4 rounded-lg border border-border bg-card"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <stat.icon className={cn("w-4 h-4", stat.color)} />
-                <span className={cn(
-                  'text-[10px] font-medium px-1.5 py-0.5 rounded',
-                  stat.change.startsWith('+') ? 'text-success bg-success/10' : 
-                  stat.change.startsWith('-') ? 'text-destructive bg-destructive/10' : 'text-muted-foreground bg-muted'
-                )}>
-                  {stat.change}
-                </span>
+          <TooltipProvider>
+            {statCards.map((stat) => (
+              <div 
+                key={stat.label} 
+                className="p-4 rounded-lg border border-border bg-card"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <stat.icon className={cn("w-4 h-4", stat.color)} />
+                    {stat.hasTooltip && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[220px]">
+                          <p className="text-xs">Calculated based on resolved vs detected vulnerabilities, severity weights, and response time. Higher is better (0-100).</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  <span className={cn(
+                    'text-[10px] font-medium px-1.5 py-0.5 rounded',
+                    stat.change.startsWith('+') ? 'text-success bg-success/10' : 
+                    stat.change.startsWith('-') ? 'text-destructive bg-destructive/10' : 'text-muted-foreground bg-muted'
+                  )}>
+                    {stat.change}
+                  </span>
+                </div>
+                <div className="text-xl font-semibold text-foreground">
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : stat.value}
+                </div>
+                <div className="text-xs text-muted-foreground">{stat.label}</div>
               </div>
-              <div className="text-xl font-semibold text-foreground">
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : stat.value}
-              </div>
-              <div className="text-xs text-muted-foreground">{stat.label}</div>
-            </div>
-          ))}
+            ))}
+          </TooltipProvider>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
