@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.nvd-cve-lookup]
 verify_jwt = false
+
+[functions.threat-intelligence]
+verify_jwt = false

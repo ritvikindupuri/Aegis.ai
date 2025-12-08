@@ -24,6 +24,86 @@ interface NVDCVEData {
   weaknesses: string[];
 }
 
+interface ThreatIntelData {
+  owaspContext: string;
+  cweContext: string;
+  kevContext: string;
+}
+
+// OWASP Top 10 2021 for context
+const OWASP_TOP_10_CONTEXT = `
+OWASP Top 10 (2021) - Check for these vulnerabilities:
+A01: Broken Access Control - Missing authorization checks, IDOR, path traversal
+A02: Cryptographic Failures - Weak encryption, hardcoded secrets, plaintext data
+A03: Injection - SQL, XSS, Command, NoSQL, LDAP, XPath injection
+A04: Insecure Design - Missing security controls, flawed architecture
+A05: Security Misconfiguration - Default configs, verbose errors, missing headers
+A06: Vulnerable Components - Outdated libraries with known CVEs
+A07: Auth Failures - Weak passwords, session issues, missing MFA
+A08: Data Integrity Failures - Insecure deserialization, untrusted CI/CD
+A09: Logging Failures - Missing audit trails, log injection
+A10: SSRF - Unvalidated URL fetching, internal network access`;
+
+// OWASP LLM Top 10 2025 for AI-specific scanning
+const OWASP_LLM_TOP_10_CONTEXT = `
+OWASP LLM Top 10 (2025) - Check for AI/ML vulnerabilities:
+LLM01: Prompt Injection - User input manipulating LLM behavior
+LLM02: Sensitive Info Disclosure - LLM revealing confidential data
+LLM03: Supply Chain - Malicious models, poisoned training data
+LLM04: Data Poisoning - Backdoors in training data
+LLM05: Improper Output Handling - Unsanitized LLM output
+LLM06: Excessive Agency - Over-permissioned LLM actions
+LLM07: System Prompt Leakage - Exposed system instructions
+LLM08: Vector Weaknesses - RAG/embedding vulnerabilities
+LLM09: Misinformation - False but credible LLM outputs
+LLM10: Unbounded Consumption - Resource exhaustion attacks`;
+
+// Critical CWEs for enhanced detection
+const CRITICAL_CWES_CONTEXT = `
+Critical CWE Categories to detect:
+CWE-79: XSS - Improper neutralization of input in web pages
+CWE-89: SQL Injection - Improper neutralization of SQL commands
+CWE-78: OS Command Injection - Improper neutralization of OS commands
+CWE-22: Path Traversal - Improper limitation of pathname
+CWE-352: CSRF - Missing anti-forgery tokens
+CWE-287: Improper Authentication - Broken auth mechanisms
+CWE-862: Missing Authorization - No access control checks
+CWE-798: Hardcoded Credentials - Secrets in source code
+CWE-434: Unrestricted File Upload - Dangerous file type upload
+CWE-918: SSRF - Unvalidated server-side requests
+CWE-502: Insecure Deserialization - Untrusted data deserialization
+CWE-611: XXE - XML External Entity processing
+CWE-94: Code Injection - Eval, dynamic code execution
+CWE-1321: Prototype Pollution - JavaScript object manipulation
+CWE-942: CORS Misconfiguration - Overly permissive origins`;
+
+// Fetch CISA KEV for actively exploited vulnerabilities
+async function fetchCISAKEVContext(): Promise<string> {
+  try {
+    const response = await fetch("https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json", {
+      headers: { "Accept": "application/json" }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const recentKEV = (data.vulnerabilities || [])
+        .sort((a: any, b: any) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime())
+        .slice(0, 15);
+      
+      if (recentKEV.length > 0) {
+        let context = "\nCISA Known Exploited Vulnerabilities (actively attacked):\n";
+        recentKEV.forEach((kev: any) => {
+          context += `- ${kev.cveID}: ${kev.vulnerabilityName} (${kev.vendorProject})\n`;
+        });
+        return context;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch CISA KEV:", error);
+  }
+  return "";
+}
+
 // Fetch relevant CVEs from NVD based on detected vulnerability patterns
 async function fetchRelevantCVEs(vulnerabilityKeywords: string[]): Promise<NVDCVEData[]> {
   const cves: NVDCVEData[] = [];
@@ -41,6 +121,9 @@ async function fetchRelevantCVEs(vulnerabilityKeywords: string[]): Promise<NVDCV
     'deserialization': 'deserialization',
     'access control': 'improper access control',
     'prompt injection': 'prompt injection',
+    'ssrf': 'server-side request forgery',
+    'xxe': 'XML external entity',
+    'file upload': 'unrestricted upload',
   };
   
   // Get unique search terms (limit to 3 to avoid rate limiting)
@@ -185,39 +268,56 @@ serve(async (req) => {
     const scanId = scanData.id;
     console.log("Created scan:", scanId, "Type:", scanType);
 
-    // Build analysis prompt based on scan type
+    // Fetch CISA KEV context for real-time threat data
+    console.log("Fetching real-time threat intelligence...");
+    const kevContext = await fetchCISAKEVContext();
+
+    // Build analysis prompt based on scan type with threat intelligence
     let analysisPrompt = '';
     
     if (scanType === 'code' && code) {
-      analysisPrompt = `You are a security code analyzer. Analyze the following code for security vulnerabilities.
+      analysisPrompt = `You are an expert security code analyzer with REAL-TIME threat intelligence. Analyze the following code for security vulnerabilities.
+
+=== SECURITY INTELLIGENCE CONTEXT ===
+${OWASP_TOP_10_CONTEXT}
+
+${CRITICAL_CWES_CONTEXT}
+
+${kevContext}
 
 CODE TO ANALYZE:
 \`\`\`
 ${code}
 \`\`\`
 
-Identify ALL security vulnerabilities including:
-- SQL Injection
-- XSS (Cross-Site Scripting)
-- Command Injection
-- Path Traversal
-- Insecure Authentication
-- Hardcoded Secrets/Credentials
-- CSRF vulnerabilities
-- Insecure Deserialization
-- Broken Access Control
-- Security Misconfigurations
-- Outdated/Vulnerable Dependencies
-- Prompt Injection (for AI code)
-- Data Exposure
+Identify ALL security vulnerabilities. Map each finding to:
+- Relevant OWASP Top 10 category (A01-A10)
+- Specific CWE ID (e.g., CWE-79, CWE-89)
+- Related CVE if the vulnerability pattern matches known CVEs
+
+Check specifically for:
+- SQL Injection (CWE-89, OWASP A03)
+- XSS (CWE-79, OWASP A03)
+- Command Injection (CWE-78, OWASP A03)
+- Path Traversal (CWE-22, OWASP A01)
+- Insecure Authentication (CWE-287, OWASP A07)
+- Hardcoded Secrets/Credentials (CWE-798, OWASP A02)
+- CSRF (CWE-352, OWASP A01)
+- Insecure Deserialization (CWE-502, OWASP A08)
+- Broken Access Control (CWE-862/863, OWASP A01)
+- SSRF (CWE-918, OWASP A10)
+- Security Misconfigurations (OWASP A05)
+- Prompt Injection for AI code (LLM01)
+- Prototype Pollution (CWE-1321)
 
 For each vulnerability found, respond in this EXACT JSON format (respond with ONLY valid JSON array):
 [
   {
     "name": "Vulnerability Name",
-    "description": "Brief description of the vulnerability",
+    "description": "Brief description including OWASP category and CWE",
     "severity": "critical|high|medium|low|info",
-    "category": "Category (e.g., Injection, Authentication, etc.)",
+    "category": "OWASP Category (e.g., A03:Injection)",
+    "cwe_id": "CWE-XX",
     "location": "Line number or code snippet where found",
     "remediation": "Specific fix recommendation with code example",
     "auto_fix": "The corrected code snippet that fixes this vulnerability",
