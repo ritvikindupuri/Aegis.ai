@@ -473,25 +473,10 @@ const ThreatDashboard = () => {
           </div>
 
           {/* Breakdown grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-            {/* Base calculation */}
-            <div className="p-3 rounded-lg bg-muted/50">
-              <div className="text-muted-foreground mb-1 font-medium">Step 1: Base Score</div>
-              <div className="font-mono text-sm">
-                <span className="text-foreground">(</span>
-                <span className="text-success font-semibold">{scoreBreakdown.resolved}</span>
-                <span className="text-muted-foreground"> / {scoreBreakdown.total}</span>
-                <span className="text-foreground">) × 100</span>
-              </div>
-              <div className="text-[10px] text-muted-foreground mt-1">
-                ({scoreBreakdown.resolved} resolved ÷ {scoreBreakdown.total} total)
-              </div>
-              <div className="text-primary font-bold text-lg mt-1">= {scoreBreakdown.baseScore.toFixed(1)}</div>
-            </div>
-
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs">
             {/* Severity counts with multipliers */}
             <div className="p-3 rounded-lg bg-muted/50">
-              <div className="text-muted-foreground mb-1 font-medium">Step 2: Count Unresolved</div>
+              <div className="text-muted-foreground mb-1 font-medium">Step 1: Count Unresolved</div>
               <div className="space-y-1 font-mono">
                 <div className="flex justify-between items-center">
                   <span className="text-destructive">Critical:</span>
@@ -514,7 +499,7 @@ const ThreatDashboard = () => {
 
             {/* Total Penalties */}
             <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
-              <div className="text-muted-foreground mb-1 font-medium">Step 3: Sum Penalties</div>
+              <div className="text-muted-foreground mb-1 font-medium">Step 2: Sum Penalties</div>
               <div className="space-y-0.5 font-mono text-sm">
                 {scoreBreakdown.critical > 0 && <div className="text-destructive">{scoreBreakdown.critical * 15}</div>}
                 {scoreBreakdown.high > 0 && <div className="text-destructive">+ {scoreBreakdown.high * 10}</div>}
@@ -529,25 +514,19 @@ const ThreatDashboard = () => {
 
             {/* Final calculation */}
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-              <div className="text-muted-foreground mb-1 font-medium">Step 4: Final Score</div>
-              <div className="font-mono text-sm text-foreground space-y-1">
-                <div>{scoreBreakdown.baseScore.toFixed(1)} − {scoreBreakdown.penalty} = {(scoreBreakdown.baseScore - scoreBreakdown.penalty).toFixed(1)}</div>
-                {(scoreBreakdown.baseScore - scoreBreakdown.penalty) < 0 && (
-                  <div className="text-xs text-muted-foreground">↳ Clamped to 0 (score cannot be negative)</div>
-                )}
-                {(scoreBreakdown.baseScore - scoreBreakdown.penalty) > 100 && (
-                  <div className="text-xs text-muted-foreground">↳ Clamped to 100 (max score)</div>
-                )}
+              <div className="text-muted-foreground mb-1 font-medium">Step 3: Final Score</div>
+              <div className="font-mono text-sm text-foreground">
+                100 − {scoreBreakdown.penalty} = {Math.max(0, 100 - scoreBreakdown.penalty)}
               </div>
               <div className={cn(
                 "text-2xl font-bold mt-1",
                 stats.security_score >= 80 ? 'text-success' :
                 stats.security_score >= 50 ? 'text-warning' : 'text-destructive'
               )}>
-                = {Math.max(0, Math.min(100, Math.round(scoreBreakdown.baseScore - scoreBreakdown.penalty)))}
+                = {stats.security_score}
               </div>
               <div className="text-[10px] text-muted-foreground mt-1">
-                {stats.security_score >= 80 ? '🟢 Good' : stats.security_score >= 50 ? '🟡 Warning' : '🔴 Critical'}
+                {scoreBreakdown.resolved > 0 && `${scoreBreakdown.resolved} resolved (not counted in penalties)`}
               </div>
             </div>
           </div>

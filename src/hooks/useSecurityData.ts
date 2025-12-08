@@ -153,16 +153,18 @@ export function useSecurityData() {
       setVulnerabilities(data as Vulnerability[]);
       
       // Calculate score breakdown from vulnerability data
+      // Count unresolved vulnerabilities (detected or analyzing)
+      const unresolvedStatuses = ['detected', 'analyzing'];
       const total = data.filter(v => v.status !== 'false_positive').length;
       const resolved = data.filter(v => v.status === 'resolved').length;
-      const critical = data.filter(v => v.status === 'detected' && v.severity === 'critical').length;
-      const high = data.filter(v => v.status === 'detected' && v.severity === 'high').length;
-      const medium = data.filter(v => v.status === 'detected' && v.severity === 'medium').length;
-      const low = data.filter(v => v.status === 'detected' && v.severity === 'low').length;
+      const critical = data.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'critical').length;
+      const high = data.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'high').length;
+      const medium = data.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'medium').length;
+      const low = data.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'low').length;
       
-      const baseScore = total === 0 ? 100 : (resolved / total) * 100;
+      // Simple: Start at 100, subtract penalties for unresolved vulns
       const penalty = (critical * 15) + (high * 10) + (medium * 5) + (low * 2);
-      const calculatedScore = Math.max(0, Math.min(100, baseScore - penalty));
+      const calculatedScore = Math.max(0, 100 - penalty);
       
       setScoreBreakdown({
         total,
@@ -171,14 +173,14 @@ export function useSecurityData() {
         high,
         medium,
         low,
-        baseScore: Math.round(baseScore * 100) / 100,
+        baseScore: 100,
         penalty,
       });
       
       // Update the stats with the calculated score so display is consistent with breakdown
       setStats(prev => ({
         ...prev,
-        security_score: Math.round(calculatedScore)
+        security_score: calculatedScore
       }));
     }
   };
