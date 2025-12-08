@@ -145,12 +145,14 @@ serve(async (req) => {
   try {
     const { code, url, dependencies, prompt, scanType } = await req.json() as ScanRequest;
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const AI_API_KEY = Deno.env.get("AI_API_KEY");
+    const AI_API_URL = Deno.env.get("AI_API_URL") || "https://api.openai.com/v1/chat/completions";
+    const AI_MODEL = Deno.env.get("AI_MODEL") || "gpt-4o-mini";
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!AI_API_KEY) {
+      throw new Error("AI_API_KEY is not configured");
     }
     
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -325,15 +327,15 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
     }
 
     // Call AI for analysis
-    console.log("Calling AI gateway for analysis...");
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    console.log("Calling AI service for analysis...");
+    const aiResponse = await fetch(AI_API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${AI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: AI_MODEL,
         messages: [
           { role: "system", content: "You are a security vulnerability scanner. Only respond with valid JSON arrays. Be thorough and accurate." },
           { role: "user", content: analysisPrompt }
@@ -343,7 +345,7 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errorText);
+      console.error("AI service error:", aiResponse.status, errorText);
       
       // Update scan as failed
       await supabase
