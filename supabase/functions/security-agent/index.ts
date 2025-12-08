@@ -65,6 +65,17 @@ Stay current with security trends and provide actionable intelligence.`,
 
     const systemPrompt = systemPrompts[mode] || systemPrompts.general;
 
+    // Use GPT-5 for deep analysis (CODEX, AEGIS), Gemini Flash for fast responses (SENTINEL, ASSIST)
+    const modelMap: Record<string, string> = {
+      security: "google/gemini-2.5-flash",      // SENTINEL - fast threat detection
+      code_review: "openai/gpt-5",              // CODEX - deep code analysis
+      threat_intel: "openai/gpt-5",             // AEGIS - comprehensive threat intel
+      general: "google/gemini-2.5-flash",       // ASSIST - quick responses
+    };
+
+    const model = modelMap[mode] || "google/gemini-2.5-flash";
+    console.log(`Using model: ${model} for mode: ${mode}`);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -72,7 +83,7 @@ Stay current with security trends and provide actionable intelligence.`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model,
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
