@@ -138,6 +138,7 @@ export type Database = {
           id: string
           location: string | null
           name: string
+          notes: string | null
           remediation: string | null
           resolved_at: string | null
           scan_id: string | null
@@ -153,6 +154,7 @@ export type Database = {
           id?: string
           location?: string | null
           name: string
+          notes?: string | null
           remediation?: string | null
           resolved_at?: string | null
           scan_id?: string | null
@@ -168,6 +170,7 @@ export type Database = {
           id?: string
           location?: string | null
           name?: string
+          notes?: string | null
           remediation?: string | null
           resolved_at?: string | null
           scan_id?: string | null
@@ -189,7 +192,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      recalculate_security_score: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

@@ -145,7 +145,7 @@ const ThreatDashboard = () => {
     if (!statusDialog.vulnId || !statusDialog.action) return;
     
     setIsUpdating(true);
-    const success = await updateVulnerabilityStatus(statusDialog.vulnId, statusDialog.action);
+    const success = await updateVulnerabilityStatus(statusDialog.vulnId, statusDialog.action, statusDialog.notes);
     setIsUpdating(false);
     
     if (success) {
@@ -453,56 +453,82 @@ const ThreatDashboard = () => {
                 vulnerabilities.map((vuln) => {
                   const StatusIcon = statusIcons[vuln.status as keyof typeof statusIcons] || AlertTriangle;
                   const severity = severityConfig[vuln.severity as keyof typeof severityConfig] || severityConfig.info;
+                  const statusLabels: Record<string, string> = { 
+                    resolved: 'Resolved', 
+                    analyzing: 'Analyzing', 
+                    false_positive: 'False Positive',
+                    detected: 'Detected'
+                  };
                   return (
                     <div
                       key={vuln.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background hover:bg-muted/30 transition-colors"
+                      className="p-3 rounded-lg border border-border bg-background hover:bg-muted/30 transition-colors"
                     >
-                      <div className={cn(
-                        'w-8 h-8 rounded flex items-center justify-center flex-shrink-0',
-                        severity.bg
-                      )}>
-                        <AlertTriangle className={cn("w-4 h-4", severity.text)} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-foreground truncate">{vuln.name}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={cn(
-                            'text-[10px] font-medium px-1.5 py-0.5 rounded uppercase',
-                            severity.bg, severity.text
-                          )}>
-                            {vuln.severity}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">{vuln.category}</span>
-                          <span className="text-[10px] text-muted-foreground">{formatTimestamp(vuln.created_at)}</span>
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          'w-8 h-8 rounded flex items-center justify-center flex-shrink-0',
+                          severity.bg
+                        )}>
+                          <AlertTriangle className={cn("w-4 h-4", severity.text)} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-foreground truncate">{vuln.name}</div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={cn(
+                              'text-[10px] font-medium px-1.5 py-0.5 rounded uppercase',
+                              severity.bg, severity.text
+                            )}>
+                              {vuln.severity}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">{vuln.category}</span>
+                            <span className="text-[10px] text-muted-foreground">{formatTimestamp(vuln.created_at)}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {vuln.status !== 'detected' && (
+                            <span className={cn(
+                              'text-[10px] font-medium px-1.5 py-0.5 rounded',
+                              vuln.status === 'resolved' ? 'bg-success/10 text-success' :
+                              vuln.status === 'analyzing' ? 'bg-warning/10 text-warning' :
+                              'bg-muted text-muted-foreground'
+                            )}>
+                              {statusLabels[vuln.status]}
+                            </span>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 px-2">
+                                <StatusIcon className={cn(
+                                  "w-3 h-3",
+                                  vuln.status === 'resolved' ? 'text-success' : 
+                                  vuln.status === 'analyzing' ? 'text-warning' : 'text-muted-foreground'
+                                )} />
+                                <ChevronDown className="w-3 h-3 ml-1" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-popover border border-border">
+                              <DropdownMenuItem onClick={() => openStatusDialog(vuln.id, vuln.name, 'resolved')}>
+                                <CheckCircle className="w-3 h-3 mr-2 text-success" />
+                                Resolved
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openStatusDialog(vuln.id, vuln.name, 'analyzing')}>
+                                <Activity className="w-3 h-3 mr-2 text-warning" />
+                                Analyzing
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openStatusDialog(vuln.id, vuln.name, 'false_positive')}>
+                                <CheckCircle className="w-3 h-3 mr-2 text-muted-foreground" />
+                                False Positive
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7 px-2">
-                            <StatusIcon className={cn(
-                              "w-3 h-3",
-                              vuln.status === 'resolved' ? 'text-success' : 
-                              vuln.status === 'analyzing' ? 'text-warning' : 'text-muted-foreground'
-                            )} />
-                            <ChevronDown className="w-3 h-3 ml-1" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-popover border border-border">
-                          <DropdownMenuItem onClick={() => openStatusDialog(vuln.id, vuln.name, 'resolved')}>
-                            <CheckCircle className="w-3 h-3 mr-2 text-success" />
-                            Resolved
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openStatusDialog(vuln.id, vuln.name, 'analyzing')}>
-                            <Activity className="w-3 h-3 mr-2 text-warning" />
-                            Analyzing
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openStatusDialog(vuln.id, vuln.name, 'false_positive')}>
-                            <CheckCircle className="w-3 h-3 mr-2 text-muted-foreground" />
-                            False Positive
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {/* Show notes if present */}
+                      {vuln.notes && (
+                        <div className="mt-2 pl-11 text-xs text-muted-foreground italic border-l-2 border-border ml-4">
+                          "{vuln.notes}"
+                        </div>
+                      )}
                     </div>
                   );
                 })

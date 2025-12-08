@@ -29,6 +29,8 @@ interface Vulnerability {
   status: 'detected' | 'analyzing' | 'resolved' | 'false_positive';
   created_at: string;
   scan_id: string | null;
+  notes: string | null;
+  resolved_at: string | null;
 }
 
 interface SecurityScan {
@@ -146,13 +148,16 @@ export function useSecurityData() {
     }
   };
 
-  const updateVulnerabilityStatus = async (id: string, status: Vulnerability['status']) => {
+  const updateVulnerabilityStatus = async (id: string, status: Vulnerability['status'], notes?: string) => {
+    const updateData: Record<string, unknown> = { 
+      status,
+      notes: notes || null,
+      resolved_at: status === 'resolved' ? new Date().toISOString() : null 
+    };
+
     const { error } = await supabase
       .from('vulnerabilities')
-      .update({ 
-        status, 
-        resolved_at: status === 'resolved' ? new Date().toISOString() : null 
-      })
+      .update(updateData)
       .eq('id', id);
 
     if (error) {
@@ -162,7 +167,7 @@ export function useSecurityData() {
 
     // Update local state
     setVulnerabilities(prev => 
-      prev.map(v => v.id === id ? { ...v, status } : v)
+      prev.map(v => v.id === id ? { ...v, status, notes: notes || null } : v)
     );
 
     // Update fixed count if resolved
@@ -171,7 +176,7 @@ export function useSecurityData() {
         .from('security_stats')
         .select('*')
         .eq('metric_name', 'vulnerabilities_fixed')
-        .single();
+        .maybeSingle();
 
       if (currentStat) {
         await supabase
