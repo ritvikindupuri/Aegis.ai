@@ -10,18 +10,70 @@ const Hero = () => {
 
   useEffect(() => {
     let index = 0;
+    let isDeleting = false;
+    let pauseTimeout: ReturnType<typeof setTimeout>;
+    
     const typingInterval = setInterval(() => {
-      if (index <= fullText.length) {
-        setDisplayText(fullText.slice(0, index));
-        index++;
+      if (!isDeleting) {
+        if (index <= fullText.length) {
+          setDisplayText(fullText.slice(0, index));
+          index++;
+        } else {
+          // Pause at full text before deleting
+          clearInterval(typingInterval);
+          pauseTimeout = setTimeout(() => {
+            isDeleting = true;
+            startTyping();
+          }, 2000);
+        }
       } else {
-        clearInterval(typingInterval);
-        // Keep cursor blinking after typing completes
-        setTimeout(() => setShowCursor(false), 1500);
+        if (index > 0) {
+          index--;
+          setDisplayText(fullText.slice(0, index));
+        } else {
+          // Pause at empty before typing again
+          clearInterval(typingInterval);
+          pauseTimeout = setTimeout(() => {
+            isDeleting = false;
+            startTyping();
+          }, 500);
+        }
       }
-    }, 80);
+    }, isDeleting ? 40 : 80);
 
-    return () => clearInterval(typingInterval);
+    function startTyping() {
+      index = isDeleting ? fullText.length : 0;
+      const newInterval = setInterval(() => {
+        if (!isDeleting) {
+          if (index <= fullText.length) {
+            setDisplayText(fullText.slice(0, index));
+            index++;
+          } else {
+            clearInterval(newInterval);
+            setTimeout(() => {
+              isDeleting = true;
+              startTyping();
+            }, 2000);
+          }
+        } else {
+          if (index > 0) {
+            index--;
+            setDisplayText(fullText.slice(0, index));
+          } else {
+            clearInterval(newInterval);
+            setTimeout(() => {
+              isDeleting = false;
+              startTyping();
+            }, 500);
+          }
+        }
+      }, isDeleting ? 40 : 80);
+    }
+
+    return () => {
+      clearInterval(typingInterval);
+      clearTimeout(pauseTimeout);
+    };
   }, []);
 
   // Cursor blink effect

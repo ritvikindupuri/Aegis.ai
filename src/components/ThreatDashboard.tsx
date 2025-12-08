@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,8 @@ const ThreatDashboard = () => {
     notes: ''
   });
   const [expandedVulns, setExpandedVulns] = useState<Set<string>>(new Set());
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleReset = async () => {
     setIsResetting(true);
@@ -614,10 +616,65 @@ const ThreatDashboard = () => {
               ))}
             </div>
 
+            {/* File Upload for Code scan */}
+            {scanType === 'code' && (
+              <div className="mb-3">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.go,.rb,.php,.rs,.swift,.kt,.vue,.svelte,.html,.css,.sql,.sh,.yml,.yaml,.json,.xml,.md,.txt"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 500 * 1024) {
+                        toast.error('File too large. Maximum size is 500KB.');
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const content = event.target?.result as string;
+                        setInput(content);
+                        setUploadedFileName(file.name);
+                      };
+                      reader.readAsText(file);
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isScanning}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border bg-background hover:bg-muted/50 transition-colors text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  {uploadedFileName ? (
+                    <span className="flex items-center gap-1.5">
+                      <FileCode className="w-3.5 h-3.5 text-primary" />
+                      {uploadedFileName}
+                      <X 
+                        className="w-3 h-3 text-muted-foreground hover:text-destructive cursor-pointer" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUploadedFileName(null);
+                          setInput('');
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }}
+                      />
+                    </span>
+                  ) : (
+                    'Upload code file (max 500KB)'
+                  )}
+                </button>
+              </div>
+            )}
+
             {/* Input */}
             <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                if (uploadedFileName) setUploadedFileName(null);
+              }}
               placeholder={currentScanType?.placeholder}
               className="w-full h-28 p-3 rounded-lg bg-muted border-0 text-foreground text-xs font-mono resize-none mb-3 focus:outline-none focus:ring-1 focus:ring-primary"
               disabled={isScanning}
