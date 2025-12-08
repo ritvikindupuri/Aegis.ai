@@ -1,55 +1,55 @@
-import { Brain, Eye, Workflow, Code, Lock, Scan } from 'lucide-react';
+import { Code, Brain, Eye, Workflow, Scan, Lock } from 'lucide-react';
 import FeatureCard from './FeatureCard';
 
 const Features = () => {
   const features = [
     {
       icon: Code,
-      title: 'AI-Generated Code Security',
-      description: 'Analyze and secure code written by humans & machines with deep semantic understanding.',
+      title: 'Code Security Analysis',
+      description: 'AI-powered static analysis detects vulnerabilities in code with remediation suggestions.',
     },
     {
       icon: Brain,
       title: 'LLM Protection',
-      description: 'Protect LLMs, agents, and AI-driven components from prompt injection and model attacks.',
+      description: 'Detect and block prompt injection, jailbreaks, and adversarial inputs to your AI systems.',
     },
     {
       icon: Eye,
-      title: 'Platform Visibility',
-      description: 'See every risk across code, dependencies, containers, and AI in one unified dashboard.',
+      title: 'Unified Visibility',
+      description: 'Track vulnerabilities across code, dependencies, and AI components in one dashboard.',
     },
     {
       icon: Workflow,
-      title: 'AI Remediation',
-      description: 'Close risks fast with AI-powered workflows that prioritize and auto-fix vulnerabilities.',
+      title: 'Auto-Remediation',
+      description: 'Get AI-generated fixes you can apply with one click to resolve issues faster.',
     },
     {
       icon: Scan,
-      title: 'Real-Time Detection',
-      description: 'Continuous monitoring with AI agents that detect and respond to threats instantly.',
+      title: 'Real-Time Scanning',
+      description: 'On-demand security scans powered by AI agents for immediate threat detection.',
     },
     {
       icon: Lock,
-      title: 'Zero-Trust Architecture',
-      description: 'Built-in zero-trust principles with continuous verification and least-privilege access.',
+      title: 'Dependency Scanning',
+      description: 'Identify vulnerable packages and outdated dependencies with upgrade recommendations.',
     },
   ];
 
   return (
-    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
+    <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
       <div className="max-w-7xl mx-auto">
         {/* Section header */}
         <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            Built for AI-native development
+          <h2 className="text-2xl sm:text-3xl font-semibold text-foreground mb-3">
+            Security for modern development
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Purpose-built security for AI-accelerated development with intelligent automation at every layer.
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            Comprehensive security coverage for AI-accelerated development workflows.
           </p>
         </div>
 
         {/* Feature grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {features.map((feature) => (
             <FeatureCard
               key={feature.title}
