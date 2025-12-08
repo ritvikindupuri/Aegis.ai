@@ -157,12 +157,29 @@ AEGIS.ai features **four specialized AI security agents**, each optimized for sp
 | **OWASP Updates** | Has OWASP knowledge from training, not live updates |
 | **Zero-day Threats** | Cannot detect vulnerabilities discovered after training cutoff |
 | **Threat Intelligence** | Based on training data, not live threat feeds |
+### NVD Integration (Live CVE Data)
 
-**For real-time threat data**, consider integrating:
-- National Vulnerability Database (NVD) API
-- NIST CVE feeds
-- MITRE ATT&CK framework APIs
-- Commercial threat intelligence providers
+AEGIS.ai integrates with the **National Vulnerability Database (NVD)** to provide real-time CVE intelligence:
+
+**How it works**:
+1. When you run a code or dependency scan, the AI analyzer identifies vulnerability patterns
+2. The scanner queries the NVD API for related CVEs published in the last 90 days
+3. CVE data (ID, CVSS score, severity, CWE weaknesses) is matched to detected vulnerabilities
+4. Additional relevant CVEs are added as "NVD Intelligence" findings
+
+**What you get**:
+- **Real CVE IDs**: Vulnerabilities are tagged with official CVE identifiers when matches are found
+- **CVSS Scores**: Industry-standard vulnerability scoring from NIST
+- **Related Alerts**: NVD alerts for patterns found in your code that match recent CVEs
+- **Direct Links**: Each NVD finding links to the official NVD detail page
+
+**Data Source**: https://services.nvd.nist.gov/rest/json/cves/2.0
+
+**Rate Limiting**:
+- Without API key: 5 requests per 30 seconds
+- With API key: 50 requests per 30 seconds (optional, set `NVD_API_KEY` secret)
+
+**Note**: NVD integration enhances scanner accuracy but the AI models themselves are not live-updated with CVE data. The NVD API provides the real-time intelligence layer.
 
 ---
 
@@ -218,12 +235,20 @@ The score recalculates automatically via database triggers when:
 
 ## Security Scanner
 
-The scanner analyzes three types of input:
+The scanner combines AI analysis with **real-time NVD CVE data** for enhanced accuracy:
+
+### How NVD Integration Works
+
+1. **AI Analysis**: The scanner uses Gemini 2.5 Flash to identify vulnerability patterns in your code
+2. **NVD Lookup**: Detected patterns trigger queries to the National Vulnerability Database API
+3. **CVE Matching**: NVD results are matched to your findings using CWE weaknesses and keywords
+4. **Enhancement**: Matched vulnerabilities get real CVE IDs, CVSS scores, and severity ratings
+5. **Intelligence**: Additional relevant CVEs are added as "NVD Intelligence" alerts
 
 ### 1. Code Scanner
 Analyzes code snippets for vulnerabilities.
 
-**Detects**:
+**AI Detection**:
 - SQL Injection
 - Cross-Site Scripting (XSS)
 - Command Injection
@@ -232,16 +257,20 @@ Analyzes code snippets for vulnerabilities.
 - Hardcoded Secrets
 - Weak Cryptography
 
+**NVD Enhancement**: Detected patterns are cross-referenced with recent CVEs (last 90 days).
+
 **Usage**: Paste code into the scanner with "Code" tab selected.
 
 ### 2. Dependency Scanner
 Analyzes package.json or dependency lists.
 
-**Detects**:
+**AI Detection**:
 - Known vulnerable packages
 - Outdated dependencies
 - Deprecated packages
 - License issues
+
+**NVD Enhancement**: Package vulnerability patterns trigger NVD lookups for relevant CVEs.
 
 **Usage**: Paste package.json content with "Dependencies" tab selected.
 
@@ -254,6 +283,8 @@ Detects prompt injection and malicious inputs.
 - Role manipulation
 - Instruction override attempts
 - Data exfiltration attempts
+
+**NVD**: No NVD integration (prompt injection lacks established CVE patterns).
 
 **Usage**: Paste prompts/inputs with "LLM Shield" tab selected.
 
@@ -436,6 +467,9 @@ For edge functions (auto-configured):
 - `SUPABASE_URL` - Internal Supabase URL
 - `SUPABASE_SERVICE_ROLE_KEY` - Service role key
 
+Optional for enhanced NVD rate limits:
+- `NVD_API_KEY` - National Vulnerability Database API key (get free at https://nvd.nist.gov/developers/request-an-api-key)
+
 ---
 
 ## API Reference
@@ -459,15 +493,58 @@ Scans code, dependencies, or prompts for security issues.
 ```json
 {
   "success": true,
-  "vulnerabilities": 2,
+  "vulnerabilities": 5,
+  "nvdCVEsAdded": 3,
+  "analysisTime": 4523,
   "results": [
     {
       "name": "SQL Injection",
       "severity": "critical",
-      "description": "...",
-      "auto_fix": "..."
+      "description": "User input directly concatenated into SQL query [Related: CVE-2024-12345]",
+      "cve_id": "CVE-2024-12345",
+      "cvss_score": 9.8,
+      "auto_fix": "...",
+      "source": "ai_analysis"
+    },
+    {
+      "name": "NVD Alert: CVE-2024-67890",
+      "severity": "high",
+      "description": "SQL injection vulnerability in...",
+      "cve_id": "CVE-2024-67890",
+      "cvss_score": 8.1,
+      "source": "nvd_intelligence"
     }
   ]
+}
+```
+
+#### `POST /functions/v1/nvd-cve-lookup`
+Direct CVE lookup from National Vulnerability Database.
+
+**Request Body**:
+```json
+{
+  "keyword": "SQL injection",
+  "severity": "critical",
+  "limit": 10
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "cves": [
+    {
+      "cve_id": "CVE-2024-12345",
+      "description": "...",
+      "severity": "critical",
+      "cvss_score": 9.8,
+      "weaknesses": ["CWE-89"],
+      "references": ["https://..."]
+    }
+  ],
+  "total": 42
 }
 ```
 

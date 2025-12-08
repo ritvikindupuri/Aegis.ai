@@ -6,12 +6,133 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const NVD_API_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0";
+
 interface ScanRequest {
   code?: string;
   url?: string;
   dependencies?: string;
   prompt?: string;
   scanType: 'code' | 'url' | 'dependency' | 'llm_protection';
+}
+
+interface NVDCVEData {
+  cve_id: string;
+  description: string;
+  severity: string;
+  cvss_score: number | null;
+  weaknesses: string[];
+}
+
+// Fetch relevant CVEs from NVD based on detected vulnerability patterns
+async function fetchRelevantCVEs(vulnerabilityKeywords: string[]): Promise<NVDCVEData[]> {
+  const cves: NVDCVEData[] = [];
+  const NVD_API_KEY = Deno.env.get("NVD_API_KEY");
+  
+  // Map common vulnerability types to NVD search keywords
+  const keywordMap: Record<string, string> = {
+    'sql injection': 'SQL injection',
+    'xss': 'cross-site scripting',
+    'command injection': 'command injection',
+    'path traversal': 'path traversal',
+    'authentication': 'authentication bypass',
+    'hardcoded': 'hardcoded credentials',
+    'csrf': 'cross-site request forgery',
+    'deserialization': 'deserialization',
+    'access control': 'improper access control',
+    'prompt injection': 'prompt injection',
+  };
+  
+  // Get unique search terms (limit to 3 to avoid rate limiting)
+  const searchTerms: string[] = [];
+  for (const keyword of vulnerabilityKeywords.slice(0, 5)) {
+    const lowerKeyword = keyword.toLowerCase();
+    for (const [pattern, nvdTerm] of Object.entries(keywordMap)) {
+      if (lowerKeyword.includes(pattern) && !searchTerms.includes(nvdTerm)) {
+        searchTerms.push(nvdTerm);
+        if (searchTerms.length >= 3) break;
+      }
+    }
+    if (searchTerms.length >= 3) break;
+  }
+  
+  console.log("Fetching CVEs for terms:", searchTerms);
+  
+  for (const term of searchTerms) {
+    try {
+      // Search for recent CVEs (last 90 days)
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      
+      const urlParams = new URLSearchParams({
+        keywordSearch: term,
+        keywordExactMatch: 'false',
+        pubStartDate: ninetyDaysAgo.toISOString(),
+        pubEndDate: new Date().toISOString(),
+        resultsPerPage: '5'
+      });
+      
+      const headers: Record<string, string> = {
+        "Accept": "application/json",
+        "User-Agent": "AEGIS-Security-Platform/1.0"
+      };
+      
+      if (NVD_API_KEY) {
+        headers["apiKey"] = NVD_API_KEY;
+      }
+      
+      const response = await fetch(`${NVD_API_BASE}?${urlParams.toString()}`, { headers });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        for (const vuln of (data.vulnerabilities || []).slice(0, 3)) {
+          const cve = vuln.cve;
+          const description = cve.descriptions?.find((d: { lang: string }) => d.lang === 'en')?.value || '';
+          
+          let cvssScore: number | null = null;
+          let severity = 'medium';
+          
+          if (cve.metrics?.cvssMetricV31?.[0]) {
+            cvssScore = cve.metrics.cvssMetricV31[0].cvssData.baseScore;
+            severity = cve.metrics.cvssMetricV31[0].cvssData.baseSeverity.toLowerCase();
+          } else if (cve.metrics?.cvssMetricV2?.[0]) {
+            const score = cve.metrics.cvssMetricV2[0].cvssData.baseScore;
+            cvssScore = score;
+            if (score >= 9.0) severity = 'critical';
+            else if (score >= 7.0) severity = 'high';
+            else if (score >= 4.0) severity = 'medium';
+            else severity = 'low';
+          }
+          
+          const weaknesses: string[] = [];
+          cve.weaknesses?.forEach((w: { description: Array<{ value: string }> }) => {
+            w.description?.forEach((d: { value: string }) => {
+              if (d.value && !d.value.includes('NVD-CWE')) {
+                weaknesses.push(d.value);
+              }
+            });
+          });
+          
+          cves.push({
+            cve_id: cve.id,
+            description: description.substring(0, 300),
+            severity,
+            cvss_score: cvssScore,
+            weaknesses
+          });
+        }
+      }
+      
+      // Rate limiting: wait 1 second between requests (NVD limit without API key)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+    } catch (error) {
+      console.error(`Failed to fetch CVEs for "${term}":`, error);
+    }
+  }
+  
+  return cves;
 }
 
 serve(async (req) => {
@@ -270,9 +391,38 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
 
     console.log(`Found ${vulnerabilities.length} vulnerabilities`);
 
+    // Fetch real CVE data from NVD to enhance findings
+    let nvdCVEs: NVDCVEData[] = [];
+    if (vulnerabilities.length > 0 && (scanType === 'code' || scanType === 'dependency')) {
+      const vulnKeywords = vulnerabilities.map((v: any) => v.name || v.category || '');
+      nvdCVEs = await fetchRelevantCVEs(vulnKeywords);
+      console.log(`Fetched ${nvdCVEs.length} related CVEs from NVD`);
+    }
+
+    // Enhance vulnerabilities with real CVE data where applicable
+    const enhancedVulnerabilities = vulnerabilities.map((v: any) => {
+      // Try to match with NVD CVE data based on category/weakness
+      const matchingCVE = nvdCVEs.find(cve => {
+        const vulnLower = (v.name + ' ' + v.category).toLowerCase();
+        return cve.weaknesses.some(w => vulnLower.includes(w.toLowerCase().replace('cwe-', ''))) ||
+               cve.description.toLowerCase().includes(v.category?.toLowerCase() || '');
+      });
+      
+      if (matchingCVE && !v.cve_id) {
+        return {
+          ...v,
+          cve_id: matchingCVE.cve_id,
+          cvss_score: matchingCVE.cvss_score || v.cvss_score,
+          severity: matchingCVE.severity || v.severity,
+          description: v.description + ` [Related: ${matchingCVE.cve_id}]`
+        };
+      }
+      return v;
+    });
+
     // Insert vulnerabilities into database
-    if (vulnerabilities.length > 0) {
-      const vulnRecords = vulnerabilities.map((v: any) => ({
+    if (enhancedVulnerabilities.length > 0) {
+      const vulnRecords = enhancedVulnerabilities.map((v: any) => ({
         scan_id: scanId,
         name: v.name || 'Unknown Vulnerability',
         description: v.description || null,
@@ -296,6 +446,35 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
       }
     }
 
+    // Add NVD CVEs as additional findings if they don't overlap
+    const additionalNVDRecords = nvdCVEs
+      .filter(cve => !enhancedVulnerabilities.some((v: any) => v.cve_id === cve.cve_id))
+      .slice(0, 5)
+      .map(cve => ({
+        scan_id: scanId,
+        name: `NVD Alert: ${cve.cve_id}`,
+        description: cve.description,
+        severity: cve.severity,
+        category: 'NVD Intelligence',
+        location: 'Relevant to scanned code patterns',
+        remediation: `Review ${cve.cve_id} at https://nvd.nist.gov/vuln/detail/${cve.cve_id}`,
+        cve_id: cve.cve_id,
+        cvss_score: cve.cvss_score,
+        status: 'detected'
+      }));
+
+    if (additionalNVDRecords.length > 0) {
+      const { error: nvdError } = await supabase
+        .from('vulnerabilities')
+        .insert(additionalNVDRecords);
+
+      if (nvdError) {
+        console.error("Failed to insert NVD CVEs:", nvdError);
+      }
+    }
+
+    const totalVulnerabilities = enhancedVulnerabilities.length + additionalNVDRecords.length;
+
     // Update scan as completed
     const analysisTime = Date.now() - startTime;
     await supabase
@@ -305,7 +484,8 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
         completed_at: new Date().toISOString(),
         metadata: {
           ...scanData.metadata,
-          vulnerabilities_found: vulnerabilities.length,
+          vulnerabilities_found: totalVulnerabilities,
+          nvd_cves_added: additionalNVDRecords.length,
           analysis_time_ms: analysisTime,
           scan_type_label: scanType === 'llm_protection' ? 'LLM Protection Scan' : 
                            scanType === 'dependency' ? 'Dependency Scan' :
@@ -329,7 +509,7 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
       const updates = [
         {
           metric_name: 'threats_blocked',
-          metric_value: (threatsBlocked?.metric_value || 0) + vulnerabilities.length,
+          metric_value: (threatsBlocked?.metric_value || 0) + totalVulnerabilities,
           previous_value: threatsBlocked?.metric_value || 0
         },
         {
@@ -355,10 +535,11 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
           .eq('metric_name', update.metric_name);
       }
 
-      // Calculate security score based on vulnerability severity
-      const criticalCount = vulnerabilities.filter((v: any) => v.severity === 'critical').length;
-      const highCount = vulnerabilities.filter((v: any) => v.severity === 'high').length;
-      const mediumCount = vulnerabilities.filter((v: any) => v.severity === 'medium').length;
+      // Calculate security score based on all vulnerabilities including NVD
+      const allVulns = [...enhancedVulnerabilities, ...additionalNVDRecords.map(r => ({ severity: r.severity }))];
+      const criticalCount = allVulns.filter((v: any) => v.severity === 'critical').length;
+      const highCount = allVulns.filter((v: any) => v.severity === 'high').length;
+      const mediumCount = allVulns.filter((v: any) => v.severity === 'medium').length;
       
       const scorePenalty = (criticalCount * 15) + (highCount * 10) + (mediumCount * 5);
       const newScore = Math.max(0, Math.min(100, (securityScore?.metric_value || 100) - scorePenalty));
@@ -373,18 +554,26 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
         .eq('metric_name', 'security_score');
     }
 
-    console.log("Scan completed successfully");
+    console.log("Scan completed successfully with NVD integration");
 
     return new Response(JSON.stringify({
       success: true,
       scanId,
       scanType,
-      vulnerabilities: vulnerabilities.length,
+      vulnerabilities: totalVulnerabilities,
+      nvdCVEsAdded: additionalNVDRecords.length,
       analysisTime,
-      results: vulnerabilities.map((v: any) => ({
-        ...v,
-        auto_fix: v.auto_fix || null
-      }))
+      results: [
+        ...enhancedVulnerabilities.map((v: any) => ({
+          ...v,
+          auto_fix: v.auto_fix || null,
+          source: 'ai_analysis'
+        })),
+        ...additionalNVDRecords.map(r => ({
+          ...r,
+          source: 'nvd_intelligence'
+        }))
+      ]
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
