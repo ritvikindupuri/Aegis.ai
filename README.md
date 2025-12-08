@@ -25,6 +25,7 @@ Unlike static analysis tools, AEGIS.ai uses a multi-agent architecture to unders
 
 AEGIS.ai utilizes a modern, serverless architecture built on Supabase Edge Functions and the Lovable AI Gateway.
 
+```mermaid
 flowchart TB
     subgraph Frontend
         UI[User Interface]
