@@ -1,8 +1,9 @@
-interface HeroProps {
-  onStartChat: () => void;
-}
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 
-const Hero = ({ onStartChat }: HeroProps) => {
+const Hero = () => {
+  const { user } = useAuth();
+
   return (
     <section className="pt-20 pb-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto text-center">
@@ -25,18 +26,30 @@ const Hero = ({ onStartChat }: HeroProps) => {
           Built for developers shipping fast.
         </p>
 
-        {/* Simple CTA */}
-        <a
-          href="#agent"
-          onClick={(e) => {
-            e.preventDefault();
-            onStartChat();
-          }}
-          className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors group"
-        >
-          Start scanning
-          <span className="group-hover:translate-x-0.5 transition-transform">→</span>
-        </a>
+        {/* CTA */}
+        {user ? (
+          <a
+            href="#agent"
+            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors group"
+          >
+            Go to Dashboard
+            <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+          </a>
+        ) : (
+          <div className="flex items-center justify-center gap-4">
+            <a href="/auth">
+              <Button size="lg">
+                Get started free
+              </Button>
+            </a>
+            <a
+              href="#features"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Learn more →
+            </a>
+          </div>
+        )}
       </div>
     </section>
   );

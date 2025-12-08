@@ -10,11 +10,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-interface NavbarProps {
-  onStartChat: () => void;
-}
+// onStartChat prop removed - no longer needed
 
-const Navbar = ({ onStartChat }: NavbarProps) => {
+const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile, signOut } = useAuth();
 
@@ -53,16 +51,13 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
                 {link.label}
               </a>
             ))}
-            <a
-              href="#agent"
-              onClick={(e) => {
-                e.preventDefault();
-                onStartChat();
-              }}
-              className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-            >
-              Try it →
-            </a>
+            {!user && (
+              <a href="/auth">
+                <Button size="sm" className="h-8">
+                  Sign up
+                </Button>
+              </a>
+            )}
             
             {/* Auth button */}
             {user ? (
@@ -113,17 +108,15 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
                 {link.label}
               </a>
             ))}
-            <a
-              href="#agent"
-              onClick={(e) => {
-                e.preventDefault();
-                setIsOpen(false);
-                onStartChat();
-              }}
-              className="text-sm font-medium text-primary py-2"
-            >
-              Try it →
-            </a>
+            {!user && (
+              <a
+                href="/auth"
+                onClick={() => setIsOpen(false)}
+                className="text-sm font-medium text-primary py-2"
+              >
+                Sign up →
+              </a>
+            )}
             
             {/* Mobile auth */}
             {user ? (

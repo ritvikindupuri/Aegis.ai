@@ -1,17 +1,36 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, Loader2, Search, Code, FileJson, MessageSquare, Zap } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, Loader2, Search, Code, FileJson, MessageSquare, Zap, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
 type ScanType = 'code' | 'dependency' | 'llm_protection';
+type StatusAction = 'resolved' | 'analyzing' | 'false_positive' | null;
+
+interface StatusDialogState {
+  isOpen: boolean;
+  vulnId: string | null;
+  vulnName: string | null;
+  action: StatusAction;
+  notes: string;
+}
 
 const ThreatDashboard = () => {
   const { stats, changes, vulnerabilities, isLoading, updateVulnerabilityStatus } = useSecurityData();
@@ -20,6 +39,14 @@ const ThreatDashboard = () => {
   const [input, setInput] = useState('');
   const [scanType, setScanType] = useState<ScanType>('code');
   const [lastResults, setLastResults] = useState<any[]>([]);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [statusDialog, setStatusDialog] = useState<StatusDialogState>({
+    isOpen: false,
+    vulnId: null,
+    vulnName: null,
+    action: null,
+    notes: ''
+  });
 
   const scanTypes = [
     { id: 'code' as const, label: 'Code', icon: Code, placeholder: 'Paste code to analyze for vulnerabilities...' },
@@ -88,17 +115,72 @@ const ThreatDashboard = () => {
     toast.success('Fix copied to clipboard');
   };
 
-  const handleStatusChange = async (id: string, newStatus: 'resolved' | 'analyzing' | 'false_positive') => {
-    const statusLabels = { resolved: 'Resolved', analyzing: 'Analyzing', false_positive: 'False Positive' };
-    const success = await updateVulnerabilityStatus(id, newStatus);
+  const openStatusDialog = (vulnId: string, vulnName: string, action: StatusAction) => {
+    setStatusDialog({
+      isOpen: true,
+      vulnId,
+      vulnName,
+      action,
+      notes: ''
+    });
+  };
+
+  const closeStatusDialog = () => {
+    setStatusDialog({
+      isOpen: false,
+      vulnId: null,
+      vulnName: null,
+      action: null,
+      notes: ''
+    });
+  };
+
+  const handleStatusSubmit = async () => {
+    if (!statusDialog.vulnId || !statusDialog.action) return;
+    
+    setIsUpdating(true);
+    const success = await updateVulnerabilityStatus(statusDialog.vulnId, statusDialog.action);
+    setIsUpdating(false);
+    
     if (success) {
-      toast.success(`Marked as ${statusLabels[newStatus]}`, {
-        description: newStatus === 'resolved' ? 'This vulnerability has been fixed.' :
-                     newStatus === 'false_positive' ? 'This was a false detection.' :
-                     'Currently being investigated.'
+      const statusLabels = { resolved: 'Resolved', analyzing: 'Analyzing', false_positive: 'False Positive' };
+      toast.success(`Marked as ${statusLabels[statusDialog.action]}`, {
+        description: statusDialog.notes || undefined
       });
+      closeStatusDialog();
     } else {
       toast.error('Failed to update status');
+    }
+  };
+
+  const getDialogContent = () => {
+    switch (statusDialog.action) {
+      case 'resolved':
+        return {
+          title: 'Mark as Resolved',
+          description: 'Confirm that this vulnerability has been fixed.',
+          placeholder: 'Describe what fix was applied (optional)...',
+          buttonText: 'Confirm Resolved',
+          buttonClass: 'bg-success hover:bg-success/90'
+        };
+      case 'analyzing':
+        return {
+          title: 'Mark as Analyzing',
+          description: 'This vulnerability is currently being investigated.',
+          placeholder: 'Add investigation notes (optional)...',
+          buttonText: 'Start Analysis',
+          buttonClass: 'bg-warning hover:bg-warning/90'
+        };
+      case 'false_positive':
+        return {
+          title: 'Mark as False Positive',
+          description: 'Confirm this is not a real vulnerability.',
+          placeholder: 'Explain why this is a false positive (required)...',
+          buttonText: 'Confirm False Positive',
+          buttonClass: ''
+        };
+      default:
+        return { title: '', description: '', placeholder: '', buttonText: '', buttonClass: '' };
     }
   };
 
@@ -139,9 +221,59 @@ const ThreatDashboard = () => {
 
   const currentScanType = scanTypes.find(s => s.id === scanType);
 
+  const dialogContent = getDialogContent();
+
   return (
-    <section id="dashboard" className="py-20 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+    <>
+      {/* Status Action Dialog */}
+      <Dialog open={statusDialog.isOpen} onOpenChange={(open) => !open && closeStatusDialog()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{dialogContent.title}</DialogTitle>
+            <DialogDescription>
+              {statusDialog.vulnName && (
+                <span className="font-medium text-foreground">{statusDialog.vulnName}</span>
+              )}
+              <br />
+              {dialogContent.description}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder={dialogContent.placeholder}
+                value={statusDialog.notes}
+                onChange={(e) => setStatusDialog(prev => ({ ...prev, notes: e.target.value }))}
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={closeStatusDialog}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleStatusSubmit}
+              disabled={isUpdating || (statusDialog.action === 'false_positive' && !statusDialog.notes.trim())}
+              className={dialogContent.buttonClass}
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                dialogContent.buttonText
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <section id="dashboard" className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-foreground mb-1">
@@ -337,15 +469,15 @@ const ThreatDashboard = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-popover border border-border">
-                          <DropdownMenuItem onClick={() => handleStatusChange(vuln.id, 'resolved')}>
+                          <DropdownMenuItem onClick={() => openStatusDialog(vuln.id, vuln.name, 'resolved')}>
                             <CheckCircle className="w-3 h-3 mr-2 text-success" />
                             Resolved
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(vuln.id, 'analyzing')}>
+                          <DropdownMenuItem onClick={() => openStatusDialog(vuln.id, vuln.name, 'analyzing')}>
                             <Activity className="w-3 h-3 mr-2 text-warning" />
                             Analyzing
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(vuln.id, 'false_positive')}>
+                          <DropdownMenuItem onClick={() => openStatusDialog(vuln.id, vuln.name, 'false_positive')}>
                             <CheckCircle className="w-3 h-3 mr-2 text-muted-foreground" />
                             False Positive
                           </DropdownMenuItem>
@@ -359,7 +491,8 @@ const ThreatDashboard = () => {
           </div>
         </div>
       </div>
-    </section>
+      </section>
+    </>
   );
 };
 
