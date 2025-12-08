@@ -222,7 +222,7 @@ const ThreatDashboard = () => {
     { label: 'Threats Detected', value: stats.threats_blocked.toLocaleString(), change: changes.threats_blocked, icon: AlertTriangle, color: 'text-destructive' },
     { label: 'Fixed', value: stats.vulnerabilities_fixed.toLocaleString(), change: changes.vulnerabilities_fixed, icon: CheckCircle, color: 'text-success' },
     { label: 'Response', value: `${stats.avg_response_time_ms}ms`, change: changes.avg_response_time_ms, icon: Clock, color: 'text-warning' },
-    { label: 'Score', value: `${stats.security_score}`, change: changes.security_score, icon: TrendingUp, color: 'text-primary', hasTooltip: true },
+    { label: 'AI-Threat Score', value: `${stats.security_score}`, change: changes.security_score, icon: TrendingUp, color: 'text-primary', hasTooltip: true },
   ];
 
   const currentScanType = scanTypes.find(s => s.id === scanType);
@@ -306,8 +306,19 @@ const ThreatDashboard = () => {
                         <TooltipTrigger asChild>
                           <Info className="w-3 h-3 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
-                        <TooltipContent className="max-w-[220px]">
-                          <p className="text-xs">Calculated based on resolved vs detected vulnerabilities, severity weights, and response time. Higher is better (0-100).</p>
+                        <TooltipContent className="max-w-[280px] p-3">
+                          <p className="text-xs font-semibold mb-2">AI-Threat Score</p>
+                          <div className="text-xs space-y-1.5 text-muted-foreground">
+                            <p><span className="font-medium text-foreground">Base score:</span> Starts at 100 if no vulnerabilities, otherwise = (resolved / total) × 100</p>
+                            <p className="font-medium text-foreground">Severity penalties for unresolved:</p>
+                            <ul className="pl-3 space-y-0.5">
+                              <li>• Critical: -15 points each</li>
+                              <li>• High: -10 points each</li>
+                              <li>• Medium: -5 points each</li>
+                              <li>• Low: -2 points each</li>
+                            </ul>
+                            <p><span className="font-medium text-foreground">Final score:</span> Base minus penalties (0-100)</p>
+                          </div>
                         </TooltipContent>
                       </Tooltip>
                     )}
@@ -409,20 +420,36 @@ const ThreatDashboard = () => {
             {/* Auto-fix results */}
             {lastResults.length > 0 && (
               <div className="mt-4 pt-4 border-t border-border">
-                <h4 className="text-xs font-medium text-foreground mb-2 flex items-center gap-1.5">
-                  <Zap className="w-3 h-3 text-warning" />
-                  Quick Fixes Available
-                </h4>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {lastResults.filter(r => r.auto_fix).slice(0, 3).map((result, i) => (
-                    <button
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-warning" />
+                    Quick Fixes Available
+                  </h4>
+                  <span className="text-[10px] text-muted-foreground bg-warning/10 text-warning px-1.5 py-0.5 rounded font-medium">
+                    {lastResults.filter(r => r.auto_fix).length} fixes
+                  </span>
+                </div>
+                <div className="space-y-3 max-h-48 overflow-y-auto">
+                  {lastResults.filter(r => r.auto_fix).slice(0, 5).map((result, i) => (
+                    <div
                       key={i}
-                      onClick={() => applyAutoFix(result.auto_fix)}
-                      className="w-full text-left p-2 rounded bg-muted hover:bg-muted/80 transition-colors"
+                      className="rounded-lg border border-warning/30 bg-warning/5 overflow-hidden"
                     >
-                      <div className="text-xs font-medium text-foreground truncate">{result.name}</div>
-                      <div className="text-[10px] text-primary">Click to copy fix</div>
-                    </button>
+                      <div className="flex items-center justify-between px-3 py-2 bg-warning/10 border-b border-warning/20">
+                        <div className="text-xs font-medium text-foreground truncate flex-1">{result.name}</div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => applyAutoFix(result.auto_fix)}
+                          className="h-6 px-2 text-[10px] text-warning hover:text-warning hover:bg-warning/20 ml-2"
+                        >
+                          Copy Fix
+                        </Button>
+                      </div>
+                      <pre className="p-3 text-[10px] font-mono text-foreground/90 overflow-x-auto whitespace-pre-wrap break-all bg-muted/50">
+                        {result.auto_fix}
+                      </pre>
+                    </div>
                   ))}
                 </div>
               </div>
