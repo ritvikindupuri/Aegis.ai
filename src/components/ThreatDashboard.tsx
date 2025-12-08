@@ -873,6 +873,32 @@ const ThreatDashboard = () => {
                             )}>
                               {vuln.severity}
                             </span>
+                            {/* OWASP LLM Badge for LLM01-LLM10 categories */}
+                            {vuln.category.match(/^LLM\d{2}/) ? (
+                              <a 
+                                href="https://genai.owasp.org/llm-top-10/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-colors flex items-center gap-1 border border-purple-500/20"
+                              >
+                                <Shield className="w-2.5 h-2.5" />
+                                OWASP LLM 2025
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            ) : vuln.category.match(/^A\d{2}/) ? (
+                              <a 
+                                href="https://owasp.org/Top10/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors flex items-center gap-1 border border-blue-500/20"
+                              >
+                                <Shield className="w-2.5 h-2.5" />
+                                OWASP Top 10
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            ) : null}
                             <span className="text-[10px] text-muted-foreground">{vuln.category}</span>
                             {vuln.cve_id && vuln.cve_id !== 'N/A' && (
                               vuln.cve_id.startsWith('CVE-') ? (
