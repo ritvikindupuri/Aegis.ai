@@ -25,32 +25,32 @@ Unlike static analysis tools, AEGIS.ai uses a multi-agent architecture to unders
 
 AEGIS.ai utilizes a modern, serverless architecture built on Supabase Edge Functions and the Lovable AI Gateway.
 
-```mermaid
-graph TB
-    subgraph "Frontend (React + Vite)"
+flowchart TB
+    subgraph Frontend
         UI[User Interface]
         Dashboard[Security Dashboard]
         Scanner[Security Scanner]
     end
 
-    subgraph "Backend (Supabase)"
+    subgraph Backend
         Edge[Edge Functions]
         DB[(PostgreSQL Database)]
     end
 
-    subgraph "Intelligence Layer"
+    subgraph Intelligence
         Gemini[Gemini 2.5 Flash]
         GPT5[GPT-5]
-        NVD[NVD API (Live CVEs)]
+        NVD[NVD API Live CVEs]
     end
 
     UI --> Edge
+    Scanner --> Edge
     Edge --> Gemini
     Edge --> GPT5
     Edge --> NVD
     Edge --> DB
-    DB -.->|Realtime Subscriptions| UI
-```
+    DB -.-> UI
+
 
 ### Data Flow
 
