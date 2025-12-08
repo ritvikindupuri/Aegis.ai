@@ -2,24 +2,24 @@
 
 > **Enterprise-grade security analysis powered by specialized AI agents.**
 
-## 📋 Overview
+##  Overview
 
 **AEGIS.ai** is an AI-native security platform designed to accelerate secure development. It leverages a multi-agent architecture to provide real-time threat detection, automated vulnerability tracking, and intelligent security assistance. unlike traditional static analysis tools, AEGIS uses LLMs to understand code context, significantly reducing false positives.
 
 ### Key Capabilities
 
--   **🛡️ Code Vulnerability Scanning**: Context-aware static analysis for SQLi, XSS, and more.
+-   ** Code Vulnerability Scanning**: Context-aware static analysis for SQLi, XSS, and more.
     
--   **📦 Dependency Auditing**: Real-time NVD checks against `package.json` files.
+-   ** Dependency Auditing**: Real-time NVD checks against `package.json` files.
     
--   **🤖 LLM Protection (Prompt Shield)**: Detects jailbreaks and prompt injection attacks.
+-   ** LLM Protection (Prompt Shield)**: Detects jailbreaks and prompt injection attacks.
     
--   **🧠 Specialized AI Agents**: Four distinct personas for Triage, Auditing, Architecture, and Ops.
+-   ** Specialized AI Agents**: Four distinct personas for Triage, Auditing, Architecture, and Ops.
     
 -   **pw Dynamic Security Score**: Real-time 0-100 risk scoring based on unresolved vulnerabilities.
     
 
-## 🏗️ System Architecture Overview
+##  System Architecture Overview
 
 ![AEGIS.ai Full System Architecture](https://i.imgur.com/VtiraIW.png)
 
@@ -27,7 +27,7 @@
 This diagram illustrates the end-to-end architecture of the AEGIS.ai platform, including the React + Vite client layer, Supabase Edge Functions for application logic, PostgreSQL for persistence, the Lovable AI Gateway (Gemini 2.5 Flash & GPT-5), and real-time CVE enrichment via the NVD API.
 
 
-## ✨ Features
+##  Features
 
 ### 1\. Intelligent Security Scanner
 
@@ -65,7 +65,7 @@ A weighted scoring algorithm that adjusts in real-time as vulnerabilities are de
 -   **Data Source**: NIST National Vulnerability Database (NVD)
     
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -109,7 +109,7 @@ A weighted scoring algorithm that adjusts in real-time as vulnerabilities are de
 
 Run the SQL migrations located in `supabase/migrations` to set up the schema, RLS policies, and triggers.
 
-## 📄 License
+##  License
 
 This project is proprietary and confidential.
 
