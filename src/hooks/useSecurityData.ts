@@ -289,6 +289,47 @@ export function useSecurityData() {
     };
   }, []);
 
+  const resetDashboard = async () => {
+    // Delete all vulnerabilities
+    const { error: vulnError } = await supabase
+      .from('vulnerabilities')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+    if (vulnError) {
+      console.error('Error deleting vulnerabilities:', vulnError);
+      return false;
+    }
+
+    // Delete all scans
+    const { error: scanError } = await supabase
+      .from('security_scans')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+    if (scanError) {
+      console.error('Error deleting scans:', scanError);
+      return false;
+    }
+
+    // Reset security stats
+    const statsToReset = ['threats_blocked', 'vulnerabilities_fixed', 'avg_response_time_ms', 'security_score', 'total_scans'];
+    for (const metricName of statsToReset) {
+      await supabase
+        .from('security_stats')
+        .upsert({
+          metric_name: metricName,
+          metric_value: metricName === 'security_score' ? 100 : 0,
+          previous_value: 0,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'metric_name' });
+    }
+
+    // Refetch to update UI
+    await Promise.all([fetchStats(), fetchVulnerabilities(), fetchScans()]);
+    return true;
+  };
+
   return {
     stats,
     changes,
@@ -300,5 +341,6 @@ export function useSecurityData() {
       await Promise.all([fetchStats(), fetchVulnerabilities(), fetchScans()]);
     },
     updateVulnerabilityStatus,
+    resetDashboard,
   };
 }

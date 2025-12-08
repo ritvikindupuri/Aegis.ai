@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { Button } from '@/components/ui/button';
@@ -33,13 +33,14 @@ interface StatusDialogState {
 }
 
 const ThreatDashboard = () => {
-  const { stats, changes, scoreBreakdown, vulnerabilities, isLoading, updateVulnerabilityStatus } = useSecurityData();
+  const { stats, changes, scoreBreakdown, vulnerabilities, isLoading, updateVulnerabilityStatus, resetDashboard } = useSecurityData();
   const [scanProgress, setScanProgress] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [input, setInput] = useState('');
   const [scanType, setScanType] = useState<ScanType>('code');
   const [lastResults, setLastResults] = useState<any[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [statusDialog, setStatusDialog] = useState<StatusDialogState>({
     isOpen: false,
     vulnId: null,
@@ -48,6 +49,19 @@ const ThreatDashboard = () => {
     notes: ''
   });
   const [expandedVulns, setExpandedVulns] = useState<Set<string>>(new Set());
+
+  const handleReset = async () => {
+    setIsResetting(true);
+    const success = await resetDashboard();
+    setIsResetting(false);
+    if (success) {
+      setLastResults([]);
+      setExpandedVulns(new Set());
+      toast.success('Dashboard reset successfully');
+    } else {
+      toast.error('Failed to reset dashboard');
+    }
+  };
 
   const toggleVulnExpanded = (id: string) => {
     setExpandedVulns(prev => {
@@ -654,6 +668,22 @@ const ThreatDashboard = () => {
                 <span className="text-xs text-muted-foreground">
                   {vulnerabilities.length} total
                 </span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 px-2 text-xs" 
+                  onClick={handleReset}
+                  disabled={isResetting || (vulnerabilities.length === 0 && stats.threats_blocked === 0)}
+                >
+                  {isResetting ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <>
+                      <RotateCcw className="w-3 h-3 mr-1" />
+                      Reset
+                    </>
+                  )}
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={vulnerabilities.length === 0}>
