@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+// Security data hook - works for all users (authenticated and unauthenticated)
 
 interface SecurityStats {
   threats_blocked: number;
