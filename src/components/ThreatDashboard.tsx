@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import ScoreHistoryChart from './ScoreHistoryChart';
 
 type ScanType = 'code' | 'dependency' | 'llm_protection';
 type StatusAction = 'resolved' | 'analyzing' | 'false_positive' | null;
@@ -33,7 +34,7 @@ interface StatusDialogState {
 }
 
 const ThreatDashboard = () => {
-  const { stats, changes, scoreBreakdown, vulnerabilities, isLoading, updateVulnerabilityStatus, resetDashboard } = useSecurityData();
+  const { stats, changes, scoreBreakdown, scoreHistory, vulnerabilities, isLoading, updateVulnerabilityStatus, resetDashboard } = useSecurityData();
   const [scanProgress, setScanProgress] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [input, setInput] = useState('');
@@ -437,6 +438,31 @@ const ThreatDashboard = () => {
               {calculatedScore}/100
             </span>
           </div>
+
+          {/* Base Score Indicator */}
+          <div className="mb-4 p-3 rounded-lg bg-success/5 border border-success/20">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-success" />
+              <span className="text-sm font-medium text-foreground">Base Score: 100</span>
+              <span className="text-xs text-muted-foreground">(No vulnerabilities = perfect score)</span>
+            </div>
+          </div>
+
+          {/* Clamped Score Warning */}
+          {scoreBreakdown.penalty > 100 && (
+            <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-sm font-medium text-destructive">Score Clamped to 0</span>
+                  <p className="text-xs text-destructive/80 mt-0.5">
+                    Total penalty ({scoreBreakdown.penalty} pts) exceeds 100. The security score cannot go below 0. 
+                    Resolve {Math.ceil((scoreBreakdown.penalty - 100) / 15)} critical or {Math.ceil((scoreBreakdown.penalty - 100) / 10)} high severity vulnerabilities to improve your score.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Visual progress bar */}
           <div className="mb-4">
@@ -476,7 +502,7 @@ const ThreatDashboard = () => {
           </div>
 
           {/* Breakdown grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs mb-4">
             {/* Severity counts with multipliers */}
             <div className="p-3 rounded-lg bg-muted/50">
               <div className="text-muted-foreground mb-1 font-medium">Step 1: Count Unresolved</div>
@@ -519,18 +545,41 @@ const ThreatDashboard = () => {
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
               <div className="text-muted-foreground mb-1 font-medium">Step 3: Final Score</div>
               <div className="font-mono text-sm text-foreground">
-                100 − {scoreBreakdown.penalty} = <span className={cn(
+                100 − {scoreBreakdown.penalty} = {scoreBreakdown.penalty > 100 && <span className="text-muted-foreground line-through mr-1">{100 - scoreBreakdown.penalty}</span>}
+                <span className={cn(
                   "font-bold text-lg",
-                  Math.max(0, 100 - scoreBreakdown.penalty) >= 80 ? 'text-success' :
-                  Math.max(0, 100 - scoreBreakdown.penalty) >= 50 ? 'text-warning' : 'text-destructive'
-                )}>{Math.max(0, 100 - scoreBreakdown.penalty)}</span>
+                  calculatedScore >= 80 ? 'text-success' :
+                  calculatedScore >= 50 ? 'text-warning' : 'text-destructive'
+                )}>{calculatedScore}</span>
+                {scoreBreakdown.penalty > 100 && <span className="text-xs text-muted-foreground ml-1">(min: 0)</span>}
               </div>
               <div className="text-[10px] text-muted-foreground mt-1">
                 {scoreBreakdown.resolved > 0 && `${scoreBreakdown.resolved} resolved (not counted in penalties)`}
               </div>
             </div>
           </div>
+
+          {/* Score History Chart */}
+          <div className="pt-4 border-t border-border">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">Score History</span>
+              <span className="text-xs text-muted-foreground">(Last 20 changes)</span>
+            </div>
+            <ScoreHistoryChart history={scoreHistory} />
+            <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="w-8 h-0.5 bg-success opacity-50" style={{ borderStyle: 'dashed' }}></span>
+                Good (≥80)
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-8 h-0.5 bg-warning opacity-50" style={{ borderStyle: 'dashed' }}></span>
+                Warning (≥50)
+              </span>
+            </div>
+          </div>
         </div>
+
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Scanner panel */}

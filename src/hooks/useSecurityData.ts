@@ -21,6 +21,12 @@ interface ScoreBreakdown {
   penalty: number;
 }
 
+interface ScoreHistoryEntry {
+  timestamp: string;
+  score: number;
+  penalty: number;
+}
+
 interface StatsChanges {
   threats_blocked: string;
   vulnerabilities_fixed: string;
@@ -84,6 +90,7 @@ export function useSecurityData() {
 
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [scans, setScans] = useState<SecurityScan[]>([]);
+  const [scoreHistory, setScoreHistory] = useState<ScoreHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const calculateChange = (current: number, previous: number): string => {
@@ -182,6 +189,26 @@ export function useSecurityData() {
         ...prev,
         security_score: calculatedScore
       }));
+
+      // Add to score history (only if there are vulnerabilities or score changed)
+      if (data.length > 0) {
+        setScoreHistory(prev => {
+          const lastEntry = prev[prev.length - 1];
+          // Only add if score is different from last entry or it's been more than 5 minutes
+          if (!lastEntry || 
+              lastEntry.score !== calculatedScore || 
+              (Date.now() - new Date(lastEntry.timestamp).getTime() > 5 * 60 * 1000)) {
+            const newEntry: ScoreHistoryEntry = {
+              timestamp: new Date().toISOString(),
+              score: calculatedScore,
+              penalty,
+            };
+            // Keep last 20 entries
+            return [...prev.slice(-19), newEntry];
+          }
+          return prev;
+        });
+      }
     }
   };
 
@@ -334,6 +361,9 @@ export function useSecurityData() {
         }, { onConflict: 'metric_name' });
     }
 
+    // Reset score history
+    setScoreHistory([]);
+
     // Refetch to update UI
     await Promise.all([fetchStats(), fetchVulnerabilities(), fetchScans()]);
     return true;
@@ -343,6 +373,7 @@ export function useSecurityData() {
     stats,
     changes,
     scoreBreakdown,
+    scoreHistory,
     vulnerabilities,
     scans,
     isLoading,
