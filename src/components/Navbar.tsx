@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface NavbarProps {
@@ -13,47 +12,46 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
   const navLinks = [
     { label: 'Features', href: '#features' },
     { label: 'Dashboard', href: '#dashboard' },
-    { label: 'AI Agent', href: '#agent' },
+    { label: 'Agent', href: '#agent' },
   ];
 
   return (
-    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <a href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">A</span>
+          <a href="/" className="flex items-center gap-2 group">
+            <div className="relative">
+              <div className="w-7 h-7 rounded-md bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-xs tracking-tight">Æ</span>
+              </div>
             </div>
-            <span className="text-xl font-semibold text-foreground">
-              AEGIS
+            <span className="text-lg font-semibold tracking-tight text-foreground">
+              aegis<span className="text-primary">.ai</span>
             </span>
           </a>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-6">
             {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 {link.label}
               </a>
             ))}
-          </div>
-
-          {/* CTA */}
-          <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" size="sm" className="text-muted-foreground">
-              Sign In
-            </Button>
-            <Button 
-              onClick={onStartChat}
-              size="sm"
+            <a
+              href="#agent"
+              onClick={(e) => {
+                e.preventDefault();
+                onStartChat();
+              }}
+              className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
             >
-              Get Started
-            </Button>
+              Try it →
+            </a>
           </div>
 
           {/* Mobile menu button */}
@@ -68,29 +66,30 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
         {/* Mobile menu */}
         <div className={cn(
           'md:hidden overflow-hidden transition-all duration-200',
-          isOpen ? 'max-h-64 pb-4' : 'max-h-0'
+          isOpen ? 'max-h-48 pb-4' : 'max-h-0'
         )}>
-          <div className="flex flex-col gap-2 pt-2">
+          <div className="flex flex-col gap-1 pt-2">
             {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
                 onClick={() => setIsOpen(false)}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
               >
                 {link.label}
               </a>
             ))}
-            <Button 
-              onClick={() => {
+            <a
+              href="#agent"
+              onClick={(e) => {
+                e.preventDefault();
                 setIsOpen(false);
                 onStartChat();
               }}
-              size="sm"
-              className="mt-2"
+              className="text-sm font-medium text-primary py-2"
             >
-              Get Started
-            </Button>
+              Try it →
+            </a>
           </div>
         </div>
       </div>
