@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Info, Download } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { Button } from '@/components/ui/button';
@@ -19,12 +19,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 
 type ScanType = 'code' | 'dependency' | 'llm_protection';
@@ -303,7 +297,7 @@ const ThreatDashboard = () => {
     { label: 'Threats Detected', value: stats.threats_blocked.toLocaleString(), change: changes.threats_blocked, icon: AlertTriangle, color: 'text-destructive' },
     { label: 'Fixed', value: stats.vulnerabilities_fixed.toLocaleString(), change: changes.vulnerabilities_fixed, icon: CheckCircle, color: 'text-success' },
     { label: 'Response', value: `${stats.avg_response_time_ms}ms`, change: changes.avg_response_time_ms, icon: Clock, color: 'text-warning' },
-    { label: 'Security Score', value: `${stats.security_score}`, change: changes.security_score, icon: TrendingUp, color: 'text-primary', hasTooltip: true },
+    { label: 'Security Score', value: `${stats.security_score}`, change: changes.security_score, icon: TrendingUp, color: 'text-primary' },
   ];
 
   const currentScanType = scanTypes.find(s => s.id === scanType);
@@ -373,53 +367,29 @@ const ThreatDashboard = () => {
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-          <TooltipProvider>
-            {statCards.map((stat) => (
-              <div 
-                key={stat.label} 
-                className="p-4 rounded-lg border border-border bg-card"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <stat.icon className={cn("w-4 h-4", stat.color)} />
-                    {stat.hasTooltip && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-3 h-3 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[300px] p-3">
-                          <p className="text-xs font-semibold mb-2">Security Score Calculation</p>
-                          <div className="text-xs space-y-1.5 text-muted-foreground font-mono">
-                            <p>Base: ({scoreBreakdown.resolved} resolved / {scoreBreakdown.total} total) × 100 = <span className="text-foreground font-semibold">{scoreBreakdown.baseScore.toFixed(1)}</span></p>
-                            <p className="text-foreground font-medium">Penalties:</p>
-                            <ul className="pl-2 space-y-0.5">
-                              {scoreBreakdown.critical > 0 && <li>• {scoreBreakdown.critical} critical × 15 = -{scoreBreakdown.critical * 15}</li>}
-                              {scoreBreakdown.high > 0 && <li>• {scoreBreakdown.high} high × 10 = -{scoreBreakdown.high * 10}</li>}
-                              {scoreBreakdown.medium > 0 && <li>• {scoreBreakdown.medium} medium × 5 = -{scoreBreakdown.medium * 5}</li>}
-                              {scoreBreakdown.low > 0 && <li>• {scoreBreakdown.low} low × 2 = -{scoreBreakdown.low * 2}</li>}
-                              {scoreBreakdown.penalty === 0 && <li className="text-success">No penalties</li>}
-                            </ul>
-                            <p className="pt-1 border-t border-border">Final: {scoreBreakdown.baseScore.toFixed(1)} - {scoreBreakdown.penalty} = <span className="text-foreground font-semibold">{stats.security_score}</span></p>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                  <span className={cn(
-                    'text-[10px] font-medium px-1.5 py-0.5 rounded',
-                    stat.change.startsWith('+') ? 'text-success bg-success/10' : 
-                    stat.change.startsWith('-') ? 'text-destructive bg-destructive/10' : 'text-muted-foreground bg-muted'
-                  )}>
-                    {stat.change}
-                  </span>
+          {statCards.map((stat) => (
+            <div 
+              key={stat.label} 
+              className="p-4 rounded-lg border border-border bg-card"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <stat.icon className={cn("w-4 h-4", stat.color)} />
                 </div>
-                <div className="text-xl font-semibold text-foreground">
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : stat.value}
-                </div>
-                <div className="text-xs text-muted-foreground">{stat.label}</div>
+                <span className={cn(
+                  'text-[10px] font-medium px-1.5 py-0.5 rounded',
+                  stat.change.startsWith('+') ? 'text-success bg-success/10' : 
+                  stat.change.startsWith('-') ? 'text-destructive bg-destructive/10' : 'text-muted-foreground bg-muted'
+                )}>
+                  {stat.change}
+                </span>
               </div>
-            ))}
-          </TooltipProvider>
+              <div className="text-xl font-semibold text-foreground">
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : stat.value}
+              </div>
+              <div className="text-xs text-muted-foreground">{stat.label}</div>
+            </div>
+          ))}
         </div>
 
         {/* Score Breakdown Panel */}
@@ -427,7 +397,7 @@ const ThreatDashboard = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-medium text-foreground text-sm flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-primary" />
-              Score Breakdown
+              Security Score Breakdown
             </h3>
             <span className={cn(
               'text-lg font-bold',
@@ -452,68 +422,96 @@ const ThreatDashboard = () => {
             </div>
           </div>
 
+          {/* Penalty Reference */}
+          <div className="mb-4 p-3 rounded-lg bg-muted/30 border border-border">
+            <div className="text-xs font-medium text-muted-foreground mb-2">Penalty Points Per Unresolved Vulnerability:</div>
+            <div className="flex flex-wrap gap-3 text-xs font-mono">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-destructive"></span>
+                <span className="text-destructive font-semibold">Critical: -15 pts</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-warning"></span>
+                <span className="text-warning font-semibold">High: -10 pts</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-warning/70"></span>
+                <span className="text-warning/70 font-semibold">Medium: -5 pts</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-muted-foreground"></span>
+                <span className="text-muted-foreground font-semibold">Low: -2 pts</span>
+              </span>
+            </div>
+          </div>
+
           {/* Breakdown grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             {/* Base calculation */}
             <div className="p-3 rounded-lg bg-muted/50">
-              <div className="text-muted-foreground mb-1">Base Score</div>
-              <div className="font-mono">
-                <span className="text-foreground font-semibold">{scoreBreakdown.resolved}</span>
-                <span className="text-muted-foreground"> / {scoreBreakdown.total} resolved</span>
+              <div className="text-muted-foreground mb-1 font-medium">Step 1: Base Score</div>
+              <div className="font-mono text-sm">
+                <span className="text-foreground">(</span>
+                <span className="text-success font-semibold">{scoreBreakdown.resolved}</span>
+                <span className="text-muted-foreground"> / {scoreBreakdown.total}</span>
+                <span className="text-foreground">) × 100</span>
               </div>
-              <div className="text-primary font-semibold mt-1">= {scoreBreakdown.baseScore.toFixed(1)}</div>
+              <div className="text-primary font-bold text-lg mt-1">= {scoreBreakdown.baseScore.toFixed(1)}</div>
             </div>
 
-            {/* Severity counts */}
+            {/* Severity counts with multipliers */}
             <div className="p-3 rounded-lg bg-muted/50">
-              <div className="text-muted-foreground mb-1">Unresolved by Severity</div>
-              <div className="space-y-0.5 font-mono">
-                <div className="flex justify-between">
+              <div className="text-muted-foreground mb-1 font-medium">Step 2: Count Unresolved</div>
+              <div className="space-y-1 font-mono">
+                <div className="flex justify-between items-center">
                   <span className="text-destructive">Critical:</span>
-                  <span className="text-foreground">{scoreBreakdown.critical}</span>
+                  <span className="text-foreground font-semibold">{scoreBreakdown.critical} × 15 = <span className="text-destructive">-{scoreBreakdown.critical * 15}</span></span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-warning">High:</span>
-                  <span className="text-foreground">{scoreBreakdown.high}</span>
+                  <span className="text-foreground font-semibold">{scoreBreakdown.high} × 10 = <span className="text-destructive">-{scoreBreakdown.high * 10}</span></span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-warning/70">Medium:</span>
-                  <span className="text-foreground">{scoreBreakdown.medium}</span>
+                  <span className="text-foreground font-semibold">{scoreBreakdown.medium} × 5 = <span className="text-destructive">-{scoreBreakdown.medium * 5}</span></span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Low:</span>
-                  <span className="text-foreground">{scoreBreakdown.low}</span>
+                  <span className="text-foreground font-semibold">{scoreBreakdown.low} × 2 = <span className="text-destructive">-{scoreBreakdown.low * 2}</span></span>
                 </div>
               </div>
             </div>
 
-            {/* Penalties */}
-            <div className="p-3 rounded-lg bg-muted/50">
-              <div className="text-muted-foreground mb-1">Penalties Applied</div>
-              <div className="space-y-0.5 font-mono text-destructive">
-                {scoreBreakdown.critical > 0 && <div>-{scoreBreakdown.critical * 15} (critical)</div>}
-                {scoreBreakdown.high > 0 && <div>-{scoreBreakdown.high * 10} (high)</div>}
-                {scoreBreakdown.medium > 0 && <div>-{scoreBreakdown.medium * 5} (medium)</div>}
-                {scoreBreakdown.low > 0 && <div>-{scoreBreakdown.low * 2} (low)</div>}
-                {scoreBreakdown.penalty === 0 && <div className="text-success">None</div>}
+            {/* Total Penalties */}
+            <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+              <div className="text-muted-foreground mb-1 font-medium">Step 3: Sum Penalties</div>
+              <div className="space-y-0.5 font-mono text-sm">
+                {scoreBreakdown.critical > 0 && <div className="text-destructive">{scoreBreakdown.critical * 15}</div>}
+                {scoreBreakdown.high > 0 && <div className="text-destructive">+ {scoreBreakdown.high * 10}</div>}
+                {scoreBreakdown.medium > 0 && <div className="text-destructive">+ {scoreBreakdown.medium * 5}</div>}
+                {scoreBreakdown.low > 0 && <div className="text-destructive">+ {scoreBreakdown.low * 2}</div>}
+                {scoreBreakdown.penalty === 0 && <div className="text-success font-semibold">No penalties!</div>}
               </div>
-              <div className="text-destructive font-semibold mt-1 border-t border-border pt-1">
-                Total: -{scoreBreakdown.penalty}
+              <div className="text-destructive font-bold text-lg mt-1 border-t border-destructive/20 pt-1">
+                = -{scoreBreakdown.penalty} pts
               </div>
             </div>
 
             {/* Final calculation */}
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-              <div className="text-muted-foreground mb-1">Final Calculation</div>
-              <div className="font-mono text-foreground">
+              <div className="text-muted-foreground mb-1 font-medium">Step 4: Final Score</div>
+              <div className="font-mono text-sm text-foreground">
                 <div>{scoreBreakdown.baseScore.toFixed(1)} - {scoreBreakdown.penalty}</div>
               </div>
               <div className={cn(
-                "text-lg font-bold mt-1",
+                "text-2xl font-bold mt-1",
                 stats.security_score >= 80 ? 'text-success' :
                 stats.security_score >= 50 ? 'text-warning' : 'text-destructive'
               )}>
                 = {stats.security_score}
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1">
+                {stats.security_score >= 80 ? '🟢 Good' : stats.security_score >= 50 ? '🟡 Warning' : '🔴 Critical'}
               </div>
             </div>
           </div>
