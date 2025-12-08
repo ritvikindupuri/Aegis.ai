@@ -34,7 +34,7 @@ const SecurityAgent = () => {
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [mode, setMode] = useState<AgentMode>('security');
   const [showHistory, setShowHistory] = useState(false);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -605,23 +605,38 @@ const SecurityAgent = () => {
                 <input
                   type="file"
                   ref={fileInputRef}
+                  multiple
                   accept=".js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.go,.rb,.php,.rs,.swift,.kt,.vue,.svelte,.html,.css,.sql,.sh,.yml,.yaml,.json,.xml,.md,.txt"
                   className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 500 * 1024) {
-                        toast.error('File too large. Maximum size is 500KB.');
-                        return;
-                      }
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        const content = event.target?.result as string;
-                        setInput(`Review this code from ${file.name}:\n\n\`\`\`\n${content}\n\`\`\``);
-                        setUploadedFileName(file.name);
-                      };
-                      reader.readAsText(file);
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length === 0) return;
+                    
+                    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+                    if (totalSize > 500 * 1024) {
+                      toast.error('Total file size exceeds 500KB limit.');
+                      return;
                     }
+                    
+                    const fileContents: string[] = [];
+                    const fileNames: string[] = [];
+                    
+                    for (const file of files) {
+                      const content = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = (event) => resolve(event.target?.result as string);
+                        reader.readAsText(file);
+                      });
+                      fileContents.push(`### ${file.name}\n\`\`\`\n${content}\n\`\`\``);
+                      fileNames.push(file.name);
+                    }
+                    
+                    const batchReview = files.length > 1 
+                      ? `Review these ${files.length} code files:\n\n${fileContents.join('\n\n')}`
+                      : `Review this code from ${files[0].name}:\n\n\`\`\`\n${fileContents[0].replace(/^### .+\n\`\`\`\n/, '').replace(/\n\`\`\`$/, '')}\n\`\`\``;
+                    
+                    setInput(batchReview);
+                    setUploadedFiles(fileNames);
                   }}
                 />
                 <button
@@ -631,22 +646,22 @@ const SecurityAgent = () => {
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border bg-background hover:bg-muted/50 transition-colors text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  {uploadedFileName ? (
-                    <span className="flex items-center gap-1.5">
+                  {uploadedFiles.length > 0 ? (
+                    <span className="flex items-center gap-1.5 flex-wrap justify-center">
                       <FileCode className="w-3.5 h-3.5 text-primary" />
-                      {uploadedFileName}
+                      {uploadedFiles.length === 1 ? uploadedFiles[0] : `${uploadedFiles.length} files selected`}
                       <X 
                         className="w-3 h-3 text-muted-foreground hover:text-destructive cursor-pointer" 
                         onClick={(e) => {
                           e.stopPropagation();
-                          setUploadedFileName(null);
+                          setUploadedFiles([]);
                           setInput('');
                           if (fileInputRef.current) fileInputRef.current.value = '';
                         }}
                       />
                     </span>
                   ) : (
-                    'Upload code file for review (max 500KB)'
+                    'Upload code files for review (max 500KB total)'
                   )}
                 </button>
               </div>
@@ -656,8 +671,8 @@ const SecurityAgent = () => {
                 value={input}
                 onChange={(e) => {
                   setInput(e.target.value);
-                  if (uploadedFileName && !e.target.value.includes(uploadedFileName)) {
-                    setUploadedFileName(null);
+                  if (uploadedFiles.length > 0 && !uploadedFiles.some(f => e.target.value.includes(f))) {
+                    setUploadedFiles([]);
                   }
                 }}
                 onKeyDown={handleKeyDown}
