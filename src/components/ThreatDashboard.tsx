@@ -516,14 +516,11 @@ const ThreatDashboard = () => {
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
               <div className="text-muted-foreground mb-1 font-medium">Step 3: Final Score</div>
               <div className="font-mono text-sm text-foreground">
-                100 − {scoreBreakdown.penalty} = {Math.max(0, 100 - scoreBreakdown.penalty)}
-              </div>
-              <div className={cn(
-                "text-2xl font-bold mt-1",
-                stats.security_score >= 80 ? 'text-success' :
-                stats.security_score >= 50 ? 'text-warning' : 'text-destructive'
-              )}>
-                = {stats.security_score}
+                100 − {scoreBreakdown.penalty} = <span className={cn(
+                  "font-bold text-lg",
+                  Math.max(0, 100 - scoreBreakdown.penalty) >= 80 ? 'text-success' :
+                  Math.max(0, 100 - scoreBreakdown.penalty) >= 50 ? 'text-warning' : 'text-destructive'
+                )}>{Math.max(0, 100 - scoreBreakdown.penalty)}</span>
               </div>
               <div className="text-[10px] text-muted-foreground mt-1">
                 {scoreBreakdown.resolved > 0 && `${scoreBreakdown.resolved} resolved (not counted in penalties)`}
