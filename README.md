@@ -53,6 +53,7 @@ flowchart TB
     DB -.-> UI
 
 
+
 ### Data Flow
 
 1. **User Scans Code** → `code-scanner` edge function
