@@ -16,7 +16,7 @@ interface NavbarProps {
 
 const Navbar = ({ onStartChat }: NavbarProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
 
   const navLinks = [
     { label: 'Features', href: '#features' },
@@ -69,7 +69,7 @@ const Navbar = ({ onStartChat }: NavbarProps) => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-8">
-                    {user.email?.split('@')[0]}
+                    {profile?.display_name || user.email?.split('@')[0]}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
