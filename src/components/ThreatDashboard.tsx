@@ -527,19 +527,24 @@ const ThreatDashboard = () => {
             {/* Final calculation */}
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
               <div className="text-muted-foreground mb-1 font-medium">Step 4: Final Score</div>
-              <div className="font-mono text-sm text-foreground">
-                <div>{scoreBreakdown.baseScore.toFixed(1)} − {scoreBreakdown.penalty}</div>
+              <div className="font-mono text-sm text-foreground space-y-1">
+                <div>{scoreBreakdown.baseScore.toFixed(1)} − {scoreBreakdown.penalty} = {(scoreBreakdown.baseScore - scoreBreakdown.penalty).toFixed(1)}</div>
+                {(scoreBreakdown.baseScore - scoreBreakdown.penalty) < 0 && (
+                  <div className="text-xs text-muted-foreground">↳ Clamped to 0 (score cannot be negative)</div>
+                )}
+                {(scoreBreakdown.baseScore - scoreBreakdown.penalty) > 100 && (
+                  <div className="text-xs text-muted-foreground">↳ Clamped to 100 (max score)</div>
+                )}
               </div>
               <div className={cn(
                 "text-2xl font-bold mt-1",
                 stats.security_score >= 80 ? 'text-success' :
                 stats.security_score >= 50 ? 'text-warning' : 'text-destructive'
               )}>
-                = {Math.max(0, Math.round(scoreBreakdown.baseScore - scoreBreakdown.penalty))}
+                = {Math.max(0, Math.min(100, Math.round(scoreBreakdown.baseScore - scoreBreakdown.penalty)))}
               </div>
               <div className="text-[10px] text-muted-foreground mt-1">
                 {stats.security_score >= 80 ? '🟢 Good' : stats.security_score >= 50 ? '🟡 Warning' : '🔴 Critical'}
-                {scoreBreakdown.baseScore - scoreBreakdown.penalty < 0 && ' (min score: 0)'}
               </div>
             </div>
           </div>
