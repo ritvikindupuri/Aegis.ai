@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface SecurityStats {
   threats_blocked: number;
@@ -55,6 +56,8 @@ interface SecurityScan {
 }
 
 export function useSecurityData() {
+  const { user } = useAuth();
+  
   const [stats, setStats] = useState<SecurityStats>({
     threats_blocked: 0,
     vulnerabilities_fixed: 0,
@@ -84,6 +87,35 @@ export function useSecurityData() {
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [scans, setScans] = useState<SecurityScan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Reset state to defaults (for unauthenticated users on refresh)
+  const resetToDefaults = useCallback(() => {
+    setStats({
+      threats_blocked: 0,
+      vulnerabilities_fixed: 0,
+      avg_response_time_ms: 0,
+      security_score: 100,
+      total_scans: 0,
+    });
+    setScoreBreakdown({
+      total: 0,
+      resolved: 0,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      baseScore: 100,
+      penalty: 0,
+    });
+    setChanges({
+      threats_blocked: '+0%',
+      vulnerabilities_fixed: '+0%',
+      avg_response_time_ms: '0%',
+      security_score: '+0%',
+    });
+    setVulnerabilities([]);
+    setScans([]);
+  }, []);
 
   const calculateChange = (current: number, previous: number): string => {
     if (previous === 0) return current > 0 ? '+100%' : '0%';
@@ -238,6 +270,14 @@ export function useSecurityData() {
   };
 
   useEffect(() => {
+    // For unauthenticated users, reset to defaults on mount (page refresh/new tab)
+    if (!user) {
+      resetToDefaults();
+      setIsLoading(false);
+      return;
+    }
+
+    // Only fetch from database for authenticated users
     const loadData = async () => {
       setIsLoading(true);
       await Promise.all([fetchStats(), fetchVulnerabilities(), fetchScans()]);
@@ -246,7 +286,7 @@ export function useSecurityData() {
 
     loadData();
 
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates (only for authenticated users)
     const statsChannel = supabase
       .channel('security_stats_changes')
       .on(
@@ -285,7 +325,7 @@ export function useSecurityData() {
       supabase.removeChannel(vulnChannel);
       supabase.removeChannel(scansChannel);
     };
-  }, []);
+  }, [user, resetToDefaults]);
 
   return {
     stats,
