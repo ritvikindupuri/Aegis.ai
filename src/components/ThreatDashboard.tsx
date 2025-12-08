@@ -193,7 +193,7 @@ const ThreatDashboard = () => {
             resolved: vulnerabilities.filter(v => v.status === 'resolved').length,
             false_positive: vulnerabilities.filter(v => v.status === 'false_positive').length,
           },
-          securityScore: stats.security_score,
+          securityScore: Math.max(0, 100 - scoreBreakdown.penalty),
         },
         vulnerabilities: vulnerabilities.map(v => ({
           name: v.name,
@@ -320,11 +320,14 @@ const ThreatDashboard = () => {
     false_positive: CheckCircle,
   };
 
+  // Calculate the security score consistently: 100 - penalty, clamped to 0 minimum
+  const calculatedScore = Math.max(0, 100 - scoreBreakdown.penalty);
+
   const statCards = [
     { label: 'Threats Detected', value: stats.threats_blocked.toLocaleString(), change: changes.threats_blocked, icon: AlertTriangle, color: 'text-destructive' },
     { label: 'Fixed', value: stats.vulnerabilities_fixed.toLocaleString(), change: changes.vulnerabilities_fixed, icon: CheckCircle, color: 'text-success' },
     { label: 'Response', value: `${stats.avg_response_time_ms}ms`, change: changes.avg_response_time_ms, icon: Clock, color: 'text-warning' },
-    { label: 'Security Score', value: `${stats.security_score}`, change: changes.security_score, icon: TrendingUp, color: 'text-primary' },
+    { label: 'Security Score', value: `${calculatedScore}`, change: changes.security_score, icon: TrendingUp, color: 'text-primary' },
   ];
 
   const currentScanType = scanTypes.find(s => s.id === scanType);
@@ -428,10 +431,10 @@ const ThreatDashboard = () => {
             </h3>
             <span className={cn(
               'text-lg font-bold',
-              stats.security_score >= 80 ? 'text-success' :
-              stats.security_score >= 50 ? 'text-warning' : 'text-destructive'
+              calculatedScore >= 80 ? 'text-success' :
+              calculatedScore >= 50 ? 'text-warning' : 'text-destructive'
             )}>
-              {stats.security_score}/100
+              {calculatedScore}/100
             </span>
           </div>
           
@@ -441,10 +444,10 @@ const ThreatDashboard = () => {
               <div 
                 className={cn(
                   "h-full transition-all duration-500 rounded-full",
-                  stats.security_score >= 80 ? 'bg-success' :
-                  stats.security_score >= 50 ? 'bg-warning' : 'bg-destructive'
+                  calculatedScore >= 80 ? 'bg-success' :
+                  calculatedScore >= 50 ? 'bg-warning' : 'bg-destructive'
                 )}
-                style={{ width: `${stats.security_score}%` }}
+                style={{ width: `${calculatedScore}%` }}
               />
             </div>
           </div>
