@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Info, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { Button } from '@/components/ui/button';
@@ -119,6 +119,87 @@ const ThreatDashboard = () => {
   const applyAutoFix = (fix: string) => {
     navigator.clipboard.writeText(fix);
     toast.success('Fix copied to clipboard');
+  };
+
+  const exportVulnerabilityReport = (format: 'csv' | 'json') => {
+    if (vulnerabilities.length === 0) {
+      toast.error('No vulnerabilities to export');
+      return;
+    }
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    
+    if (format === 'csv') {
+      const headers = ['Name', 'Severity', 'Category', 'Status', 'Description', 'Location', 'CVE ID', 'CVSS Score', 'Remediation', 'Notes', 'Created At', 'Resolved At'];
+      const rows = vulnerabilities.map(v => [
+        v.name,
+        v.severity,
+        v.category,
+        v.status,
+        v.description || '',
+        v.location || '',
+        v.cve_id || '',
+        v.cvss_score?.toString() || '',
+        v.remediation || '',
+        v.notes || '',
+        v.created_at,
+        v.resolved_at || ''
+      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','));
+      
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `vulnerability-report-${timestamp}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('CSV report downloaded');
+    } else {
+      const report = {
+        generatedAt: new Date().toISOString(),
+        summary: {
+          total: vulnerabilities.length,
+          bySeverity: {
+            critical: vulnerabilities.filter(v => v.severity === 'critical').length,
+            high: vulnerabilities.filter(v => v.severity === 'high').length,
+            medium: vulnerabilities.filter(v => v.severity === 'medium').length,
+            low: vulnerabilities.filter(v => v.severity === 'low').length,
+          },
+          byStatus: {
+            detected: vulnerabilities.filter(v => v.status === 'detected').length,
+            analyzing: vulnerabilities.filter(v => v.status === 'analyzing').length,
+            resolved: vulnerabilities.filter(v => v.status === 'resolved').length,
+            false_positive: vulnerabilities.filter(v => v.status === 'false_positive').length,
+          },
+          securityScore: stats.security_score,
+        },
+        vulnerabilities: vulnerabilities.map(v => ({
+          name: v.name,
+          severity: v.severity,
+          category: v.category,
+          status: v.status,
+          description: v.description,
+          location: v.location,
+          cve_id: v.cve_id,
+          cvss_score: v.cvss_score,
+          remediation: v.remediation,
+          notes: v.notes,
+          created_at: v.created_at,
+          resolved_at: v.resolved_at,
+        })),
+      };
+      
+      const json = JSON.stringify(report, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `vulnerability-report-${timestamp}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('JSON report downloaded');
+    }
   };
 
   const openStatusDialog = (vulnId: string, vulnName: string, action: StatusAction) => {
@@ -558,9 +639,29 @@ const ThreatDashboard = () => {
           <div className="lg:col-span-2 rounded-lg border border-border bg-card p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-foreground text-sm">Vulnerability Feed</h3>
-              <span className="text-xs text-muted-foreground">
-                {vulnerabilities.length} total
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {vulnerabilities.length} total
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={vulnerabilities.length === 0}>
+                      <Download className="w-3 h-3 mr-1" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-popover border border-border">
+                    <DropdownMenuItem onClick={() => exportVulnerabilityReport('csv')}>
+                      <FileJson className="w-3 h-3 mr-2" />
+                      Export as CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => exportVulnerabilityReport('json')}>
+                      <Code className="w-3 h-3 mr-2" />
+                      Export as JSON
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
 
             <div className="space-y-2 max-h-[380px] overflow-y-auto">
