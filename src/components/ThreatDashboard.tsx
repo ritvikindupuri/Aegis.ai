@@ -773,8 +773,8 @@ const ThreatDashboard = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-foreground truncate">{vuln.name}</span>
-                            {/* NVD Enriched Badge */}
-                            {vuln.cve_id && (
+                            {/* NVD Enriched Badge - only for real CVE IDs */}
+                            {vuln.cve_id && vuln.cve_id !== 'N/A' && vuln.cve_id.startsWith('CVE-') && (
                               <span className="flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
                                 <Shield className="w-2.5 h-2.5" />
                                 NVD
@@ -789,17 +789,34 @@ const ThreatDashboard = () => {
                               {vuln.severity}
                             </span>
                             <span className="text-[10px] text-muted-foreground">{vuln.category}</span>
-                            {vuln.cve_id && (
-                              <a 
-                                href={`https://nvd.nist.gov/vuln/detail/${vuln.cve_id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
-                              >
-                                {vuln.cve_id}
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
+                            {vuln.cve_id && vuln.cve_id !== 'N/A' && (
+                              vuln.cve_id.startsWith('CVE-') ? (
+                                <a 
+                                  href={`https://nvd.nist.gov/vuln/detail/${vuln.cve_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
+                                >
+                                  {vuln.cve_id}
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              ) : vuln.cve_id.startsWith('CWE-') ? (
+                                <a 
+                                  href={`https://cwe.mitre.org/data/definitions/${vuln.cve_id.replace('CWE-', '')}.html`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+                                >
+                                  {vuln.cve_id}
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              ) : (
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                  {vuln.cve_id}
+                                </span>
+                              )
                             )}
                             {vuln.cvss_score !== null && (
                               <span className={cn(
