@@ -9,15 +9,16 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Features](#features)
-3. [AI Agents](#ai-agents)
-4. [Security Score System](#security-score-system)
-5. [Security Scanner](#security-scanner)
-6. [Database Schema](#database-schema)
-7. [Authentication](#authentication)
-8. [Technology Stack](#technology-stack)
-9. [Getting Started](#getting-started)
-10. [API Reference](#api-reference)
+2. [Architecture](#architecture)
+3. [Features](#features)
+4. [AI Agents](#ai-agents)
+5. [Security Score System](#security-score-system)
+6. [Security Scanner](#security-scanner)
+7. [Database Schema](#database-schema)
+8. [Authentication](#authentication)
+9. [Technology Stack](#technology-stack)
+10. [Getting Started](#getting-started)
+11. [API Reference](#api-reference)
 
 ---
 
@@ -32,6 +33,73 @@ AEGIS.ai is an AI-native security platform designed for secure, AI-accelerated d
 - **LLM Protection (Prompt Shield)**: Detect prompt injection attacks and malicious inputs
 - **AI-Powered Security Agents**: Four specialized agents for different security tasks
 - **Real-time Dashboard**: Live vulnerability tracking and security scoring
+
+---
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph "Frontend (React + Vite)"
+        UI[User Interface]
+        Dashboard[Security Dashboard]
+        Agents[AI Agent Chat]
+        Scanner[Security Scanner]
+    end
+
+    subgraph "Backend (Supabase Edge Functions)"
+        SecurityAgent[security-agent]
+        CodeScanner[code-scanner]
+        NVDLookup[nvd-cve-lookup]
+    end
+
+    subgraph "AI Gateway (Lovable AI)"
+        Gemini[Gemini 2.5 Flash]
+        GPT5[GPT-5]
+    end
+
+    subgraph "External APIs"
+        NVD[NVD API<br/>Real-time CVE Data]
+    end
+
+    subgraph "Database (Supabase PostgreSQL)"
+        Profiles[(profiles)]
+        ChatSessions[(chat_sessions)]
+        Vulnerabilities[(vulnerabilities)]
+        SecurityScans[(security_scans)]
+        SecurityStats[(security_stats)]
+    end
+
+    UI --> Dashboard
+    UI --> Agents
+    UI --> Scanner
+
+    Dashboard --> Vulnerabilities
+    Dashboard --> SecurityStats
+
+    Agents --> SecurityAgent
+    SecurityAgent --> Gemini
+    SecurityAgent --> GPT5
+    SecurityAgent --> ChatSessions
+
+    Scanner --> CodeScanner
+    CodeScanner --> Gemini
+    CodeScanner --> NVDLookup
+    NVDLookup --> NVD
+    CodeScanner --> Vulnerabilities
+    CodeScanner --> SecurityScans
+    CodeScanner --> SecurityStats
+
+    Vulnerabilities -.->|Trigger| SecurityStats
+```
+
+### Data Flow
+
+1. **User Scans Code** → `code-scanner` edge function
+2. **AI Analysis** → Gemini 2.5 Flash identifies vulnerabilities
+3. **NVD Enhancement** → Real CVE data fetched from National Vulnerability Database
+4. **Database Update** → Vulnerabilities stored, triggers recalculate security score
+5. **Dashboard Refresh** → Real-time updates via Supabase subscriptions
 
 ---
 
