@@ -307,8 +307,8 @@ const ThreatDashboard = () => {
 
   const severityConfig = {
     critical: { bg: 'bg-destructive/10', text: 'text-destructive', border: 'border-destructive/20' },
-    high: { bg: 'bg-warning/10', text: 'text-warning', border: 'border-warning/20' },
-    medium: { bg: 'bg-warning/10', text: 'text-warning', border: 'border-warning/20' },
+    high: { bg: 'bg-orange-500/10', text: 'text-orange-500', border: 'border-orange-500/20' },
+    medium: { bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/20' },
     low: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20' },
     info: { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' },
   };
@@ -458,12 +458,12 @@ const ThreatDashboard = () => {
                 <span className="text-destructive font-semibold">Critical: -15 pts</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-warning"></span>
-                <span className="text-warning font-semibold">High: -10 pts</span>
+                <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                <span className="text-orange-500 font-semibold">High: -10 pts</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-warning/70"></span>
-                <span className="text-warning/70 font-semibold">Medium: -5 pts</span>
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span className="text-amber-500 font-semibold">Medium: -5 pts</span>
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-muted-foreground"></span>
@@ -495,11 +495,11 @@ const ThreatDashboard = () => {
                   <span className="text-foreground font-semibold">{scoreBreakdown.critical} × 15 = <span className="text-destructive">-{scoreBreakdown.critical * 15}</span></span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-warning">High:</span>
+                  <span className="text-orange-500">High:</span>
                   <span className="text-foreground font-semibold">{scoreBreakdown.high} × 10 = <span className="text-destructive">-{scoreBreakdown.high * 10}</span></span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-warning/70">Medium:</span>
+                  <span className="text-amber-500">Medium:</span>
                   <span className="text-foreground font-semibold">{scoreBreakdown.medium} × 5 = <span className="text-destructive">-{scoreBreakdown.medium * 5}</span></span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -528,14 +528,14 @@ const ThreatDashboard = () => {
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
               <div className="text-muted-foreground mb-1 font-medium">Step 4: Final Score</div>
               <div className="font-mono text-sm text-foreground">
-                <div>{scoreBreakdown.baseScore.toFixed(1)} - {scoreBreakdown.penalty}</div>
+                <div>max(0, {scoreBreakdown.baseScore.toFixed(1)} - {scoreBreakdown.penalty})</div>
               </div>
               <div className={cn(
                 "text-2xl font-bold mt-1",
                 stats.security_score >= 80 ? 'text-success' :
                 stats.security_score >= 50 ? 'text-warning' : 'text-destructive'
               )}>
-                = {stats.security_score}
+                = {Math.max(0, Math.round(scoreBreakdown.baseScore - scoreBreakdown.penalty))}
               </div>
               <div className="text-[10px] text-muted-foreground mt-1">
                 {stats.security_score >= 80 ? '🟢 Good' : stats.security_score >= 50 ? '🟡 Warning' : '🔴 Critical'}
