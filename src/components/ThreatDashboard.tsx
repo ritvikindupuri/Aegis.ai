@@ -697,7 +697,7 @@ const ThreatDashboard = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-foreground truncate">{vuln.name}</div>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             <span className={cn(
                               'text-[10px] font-medium px-1.5 py-0.5 rounded uppercase',
                               severity.bg, severity.text
@@ -705,6 +705,27 @@ const ThreatDashboard = () => {
                               {vuln.severity}
                             </span>
                             <span className="text-[10px] text-muted-foreground">{vuln.category}</span>
+                            {vuln.cve_id && (
+                              <a 
+                                href={`https://nvd.nist.gov/vuln/detail/${vuln.cve_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              >
+                                {vuln.cve_id}
+                              </a>
+                            )}
+                            {vuln.cvss_score !== null && (
+                              <span className={cn(
+                                'text-[10px] font-medium px-1.5 py-0.5 rounded',
+                                vuln.cvss_score >= 9 ? 'bg-destructive/10 text-destructive' :
+                                vuln.cvss_score >= 7 ? 'bg-warning/10 text-warning' :
+                                vuln.cvss_score >= 4 ? 'bg-warning/10 text-warning/80' :
+                                'bg-muted text-muted-foreground'
+                              )}>
+                                CVSS {vuln.cvss_score}
+                              </span>
+                            )}
                             <span className="text-[10px] text-muted-foreground">{formatTimestamp(vuln.created_at)}</span>
                           </div>
                         </div>
