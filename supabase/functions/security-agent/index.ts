@@ -12,10 +12,11 @@ serve(async (req) => {
 
   try {
     const { messages, mode } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const AI_API_KEY = Deno.env.get("AI_API_KEY");
+    const AI_API_URL = Deno.env.get("AI_API_URL") || "https://api.openai.com/v1/chat/completions";
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!AI_API_KEY) {
+      throw new Error("AI_API_KEY is not configured");
     }
 
     const systemPrompts: Record<string, string> = {
@@ -65,21 +66,21 @@ Stay current with security trends and provide actionable intelligence.`,
 
     const systemPrompt = systemPrompts[mode] || systemPrompts.general;
 
-    // Use GPT-5 for deep analysis (CODEX, AEGIS), Gemini Flash for fast responses (SENTINEL, ASSIST)
+    // Use powerful model for deep analysis (CODEX, AEGIS), fast model for quick responses (SENTINEL, ASSIST)
     const modelMap: Record<string, string> = {
-      security: "google/gemini-2.5-flash",      // SENTINEL - fast threat detection
-      code_review: "openai/gpt-5",              // CODEX - deep code analysis
-      threat_intel: "openai/gpt-5",             // AEGIS - comprehensive threat intel
-      general: "google/gemini-2.5-flash",       // ASSIST - quick responses
+      security: Deno.env.get("AI_MODEL_FAST") || "gpt-4o-mini",      // SENTINEL - fast threat detection
+      code_review: Deno.env.get("AI_MODEL_POWER") || "gpt-4o",       // CODEX - deep code analysis
+      threat_intel: Deno.env.get("AI_MODEL_POWER") || "gpt-4o",      // AEGIS - comprehensive threat intel
+      general: Deno.env.get("AI_MODEL_FAST") || "gpt-4o-mini",       // ASSIST - quick responses
     };
 
-    const model = modelMap[mode] || "google/gemini-2.5-flash";
+    const model = modelMap[mode] || (Deno.env.get("AI_MODEL_FAST") || "gpt-4o-mini");
     console.log(`Using model: ${model} for mode: ${mode}`);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(AI_API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${AI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -106,7 +107,7 @@ Stay current with security trends and provide actionable intelligence.`,
         });
       }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("AI service error:", response.status, errorText);
       return new Response(JSON.stringify({ error: "AI service error" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
