@@ -8,45 +8,25 @@ Enterprise-grade security analysis powered by specialized AI agents.
 
 ### Key Capabilities
 
-🛡️ Code Vulnerability Scanning: Context-aware static analysis for SQLi, **XSS**, and more.
+ Code Vulnerability Scanning: Context-aware static analysis for SQLi, **XSS**, and more.
 
-📦 Dependency Auditing: Real-time **NVD** checks against package.json files.
+ Dependency Auditing: Real-time **NVD** checks against package.json files.
 
-🤖 **LLM** Protection (Prompt Shield): Detects jailbreaks and prompt injection attacks.
+ **LLM** Protection (Prompt Shield): Detects jailbreaks and prompt injection attacks.
 
-🧠 Specialized AI Agents: Four distinct personas for Triage, Auditing, Architecture, and Ops.
+ Specialized AI Agents: Four distinct personas for Triage, Auditing, Architecture, and Ops.
 
-pw Dynamic Security Score: Real-time 0-**100** risk scoring based on unresolved vulnerabilities.
+Dynamic Security Score: Real-time 0-**100** risk scoring based on unresolved vulnerabilities.
 
-🏗️ Architecture
+## 🏗️ System Architecture Overview
 
-**AEGIS**.ai relies on a serverless, event-driven architecture powered by Supabase and Edge Functions.
+![AEGIS.ai Full System Architecture](https://i.imgur.com/Hwm6Wg4.png)
 
-graph TB
-    subgraph *Frontend*
-    UI[React + Vite UI]
-    end
+**Figure 1 — AEGIS.ai Full-Stack Architecture:**  
+This diagram illustrates the complete end-to-end architecture of the AEGIS.ai platform, including the React + Vite client layer, Supabase Edge Functions application layer, PostgreSQL persistence layer, Lovable AI Gateway intelligence layer (Gemini 2.5 Flash & GPT-5), and real-time CVE enrichment via the NVD API.
 
-    subgraph *Backend (Supabase)*
-    Auth[Authentication]
-    DB[(PostgreSQL)]
-    Edge[Edge Functions]
-    end
 
-    subgraph *AI Intelligence*
-    Gateway[Lovable AI Gateway]
-    Gemini[Gemini 2.5 Flash]
-    **GPT5**[**GPT**-5]
-    **NVD**[**NVD** **API**]
-    end
-
-    UI --> Edge
-    Edge --> Gateway
-    Gateway --> Gemini & **GPT5**
-    Edge --> **NVD**
-    Edge --> DB
-
-✨ Features
+ Features
 
 ## Intelligent Security Scanner
 
