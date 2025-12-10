@@ -24,12 +24,6 @@ interface NVDCVEData {
   weaknesses: string[];
 }
 
-interface ThreatIntelData {
-  owaspContext: string;
-  cweContext: string;
-  kevContext: string;
-}
-
 // OWASP Top 10 2021 for context
 const OWASP_TOP_10_CONTEXT = `
 OWASP Top 10 (2021) - Check for these vulnerabilities:
@@ -76,6 +70,38 @@ CWE-611: XXE - XML External Entity processing
 CWE-94: Code Injection - Eval, dynamic code execution
 CWE-1321: Prototype Pollution - JavaScript object manipulation
 CWE-942: CORS Misconfiguration - Overly permissive origins`;
+
+// Helper to extract user_id from JWT token
+async function getUserIdFromRequest(req: Request): Promise<string | null> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+  
+  // If it's the anon key, user is not authenticated
+  if (token === supabaseAnonKey) {
+    return null;
+  }
+  
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+    
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      console.log("No authenticated user found, treating as demo mode");
+      return null;
+    }
+    return user.id;
+  } catch (e) {
+    console.error("Error validating user token:", e);
+    return null;
+  }
+}
 
 // Fetch CISA KEV for actively exploited vulnerabilities
 async function fetchCISAKEVContext(): Promise<string> {
@@ -226,6 +252,11 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
+    // Check if user is authenticated
+    const userId = await getUserIdFromRequest(req);
+    const isAuthenticated = !!userId;
+    console.log(`Scan request - Authenticated: ${isAuthenticated}, User ID: ${userId || 'demo'}`);
+
     const { code, url, dependencies, prompt, scanType } = await req.json() as ScanRequest;
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -242,31 +273,37 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Create scan record
+    // Only create scan record if user is authenticated
+    let scanId: string | null = null;
     const target = code?.substring(0, 100) || prompt?.substring(0, 100) || url || 'dependency scan';
-    const { data: scanData, error: scanError } = await supabase
-      .from('security_scans')
-      .insert({
-        scan_type: scanType,
-        target: target,
-        status: 'running',
-        metadata: { 
-          codeLength: code?.length,
-          promptLength: prompt?.length,
-          url: url,
-          hasDependencies: !!dependencies
-        }
-      })
-      .select()
-      .single();
+    
+    if (isAuthenticated) {
+      const { data: scanData, error: scanError } = await supabase
+        .from('security_scans')
+        .insert({
+          scan_type: scanType,
+          target: target,
+          status: 'running',
+          user_id: userId,
+          metadata: { 
+            codeLength: code?.length,
+            promptLength: prompt?.length,
+            url: url,
+            hasDependencies: !!dependencies
+          }
+        })
+        .select()
+        .single();
 
-    if (scanError) {
-      console.error("Failed to create scan record:", scanError);
-      throw new Error("Failed to create scan record");
+      if (scanError) {
+        console.error("Failed to create scan record:", scanError);
+        throw new Error("Failed to create scan record");
+      }
+      scanId = scanData.id;
+      console.log("Created scan:", scanId, "Type:", scanType);
+    } else {
+      console.log("Demo mode - scan results will not be persisted");
     }
-
-    const scanId = scanData.id;
-    console.log("Created scan:", scanId, "Type:", scanType);
 
     // Fetch CISA KEV context for real-time threat data
     console.log("Fetching real-time threat intelligence...");
@@ -465,11 +502,13 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
       const errorText = await aiResponse.text();
       console.error("AI gateway error:", aiResponse.status, errorText);
       
-      // Update scan as failed
-      await supabase
-        .from('security_scans')
-        .update({ status: 'failed', completed_at: new Date().toISOString() })
-        .eq('id', scanId);
+      // Update scan as failed (only if authenticated)
+      if (isAuthenticated && scanId) {
+        await supabase
+          .from('security_scans')
+          .update({ status: 'failed', completed_at: new Date().toISOString() })
+          .eq('id', scanId);
+      }
         
       if (aiResponse.status === 429) {
         throw new Error("Rate limit exceeded. Please try again later.");
@@ -540,40 +579,11 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
       return v;
     });
 
-    // Insert vulnerabilities into database
-    if (enhancedVulnerabilities.length > 0) {
-      const vulnRecords = enhancedVulnerabilities.map((v: any) => ({
-        scan_id: scanId,
-        name: v.name || 'Unknown Vulnerability',
-        description: v.description || null,
-        severity: ['critical', 'high', 'medium', 'low', 'info'].includes(v.severity?.toLowerCase()) 
-          ? v.severity.toLowerCase() 
-          : 'medium',
-        category: v.category || (scanType === 'llm_protection' ? 'LLM Security' : 
-                                 scanType === 'dependency' ? 'Dependency' : 
-                                 scanType === 'code' ? 'Code Analysis' : 'General'),
-        location: v.location || null,
-        remediation: v.remediation || null,
-        cve_id: v.cve_id || null,
-        cvss_score: typeof v.cvss_score === 'number' ? v.cvss_score : null,
-        status: 'detected'
-      }));
-
-      const { error: vulnError } = await supabase
-        .from('vulnerabilities')
-        .insert(vulnRecords);
-
-      if (vulnError) {
-        console.error("Failed to insert vulnerabilities:", vulnError);
-      }
-    }
-
-    // Add NVD CVEs as additional findings if they don't overlap
+    // Create additional NVD records
     const additionalNVDRecords = nvdCVEs
       .filter(cve => !enhancedVulnerabilities.some((v: any) => v.cve_id === cve.cve_id))
       .slice(0, 5)
       .map(cve => ({
-        scan_id: scanId,
         name: `NVD Alert: ${cve.cve_id}`,
         description: cve.description,
         severity: cve.severity,
@@ -585,106 +595,159 @@ Respond in this EXACT JSON format (respond with ONLY valid JSON array):
         status: 'detected'
       }));
 
-    if (additionalNVDRecords.length > 0) {
-      const { error: nvdError } = await supabase
-        .from('vulnerabilities')
-        .insert(additionalNVDRecords);
-
-      if (nvdError) {
-        console.error("Failed to insert NVD CVEs:", nvdError);
-      }
-    }
-
     const totalVulnerabilities = enhancedVulnerabilities.length + additionalNVDRecords.length;
-
-    // Update scan as completed
     const analysisTime = Date.now() - startTime;
-    await supabase
-      .from('security_scans')
-      .update({ 
-        status: 'completed', 
-        completed_at: new Date().toISOString(),
-        metadata: {
-          ...scanData.metadata,
-          vulnerabilities_found: totalVulnerabilities,
-          nvd_cves_added: additionalNVDRecords.length,
-          analysis_time_ms: analysisTime,
-          scan_type_label: scanType === 'llm_protection' ? 'LLM Protection Scan' : 
-                           scanType === 'dependency' ? 'Dependency Scan' :
-                           scanType === 'code' ? 'Code Security Scan' : 'URL Scan'
+
+    // Only persist to database if user is authenticated
+    if (isAuthenticated && scanId) {
+      // Insert vulnerabilities into database
+      if (enhancedVulnerabilities.length > 0) {
+        const vulnRecords = enhancedVulnerabilities.map((v: any) => ({
+          scan_id: scanId,
+          user_id: userId,
+          name: v.name || 'Unknown Vulnerability',
+          description: v.description || null,
+          severity: ['critical', 'high', 'medium', 'low', 'info'].includes(v.severity?.toLowerCase()) 
+            ? v.severity.toLowerCase() 
+            : 'medium',
+          category: v.category || (scanType === 'llm_protection' ? 'LLM Security' : 
+                                   scanType === 'dependency' ? 'Dependency' : 
+                                   scanType === 'code' ? 'Code Analysis' : 'General'),
+          location: v.location || null,
+          remediation: v.remediation || null,
+          cve_id: v.cve_id || null,
+          cvss_score: typeof v.cvss_score === 'number' ? v.cvss_score : null,
+          status: 'detected'
+        }));
+
+        const { error: vulnError } = await supabase
+          .from('vulnerabilities')
+          .insert(vulnRecords);
+
+        if (vulnError) {
+          console.error("Failed to insert vulnerabilities:", vulnError);
         }
-      })
-      .eq('id', scanId);
+      }
 
-    // Update security stats
-    const { data: currentStats } = await supabase
-      .from('security_stats')
-      .select('*');
+      // Add NVD CVEs as additional findings
+      if (additionalNVDRecords.length > 0) {
+        const nvdRecordsWithUserId = additionalNVDRecords.map(r => ({
+          ...r,
+          scan_id: scanId,
+          user_id: userId
+        }));
 
-    if (currentStats) {
-      const threatsBlocked = currentStats.find(s => s.metric_name === 'threats_blocked');
-      const totalScans = currentStats.find(s => s.metric_name === 'total_scans');
-      const avgResponse = currentStats.find(s => s.metric_name === 'avg_response_time_ms');
-      const securityScore = currentStats.find(s => s.metric_name === 'security_score');
+        const { error: nvdError } = await supabase
+          .from('vulnerabilities')
+          .insert(nvdRecordsWithUserId);
 
-      // Update stats
-      const updates = [
-        {
-          metric_name: 'threats_blocked',
-          metric_value: (threatsBlocked?.metric_value || 0) + totalVulnerabilities,
-          previous_value: threatsBlocked?.metric_value || 0
-        },
-        {
-          metric_name: 'total_scans',
-          metric_value: (totalScans?.metric_value || 0) + 1,
-          previous_value: totalScans?.metric_value || 0
-        },
-        {
-          metric_name: 'avg_response_time_ms',
-          metric_value: Math.round(((avgResponse?.metric_value || 0) * (totalScans?.metric_value || 0) + analysisTime) / ((totalScans?.metric_value || 0) + 1)),
-          previous_value: avgResponse?.metric_value || 0
+        if (nvdError) {
+          console.error("Failed to insert NVD CVEs:", nvdError);
         }
-      ];
+      }
 
-      for (const update of updates) {
+      // Update scan as completed
+      await supabase
+        .from('security_scans')
+        .update({ 
+          status: 'completed', 
+          completed_at: new Date().toISOString(),
+          metadata: {
+            vulnerabilities_found: totalVulnerabilities,
+            nvd_cves_added: additionalNVDRecords.length,
+            analysis_time_ms: analysisTime,
+            scan_type_label: scanType === 'llm_protection' ? 'LLM Protection Scan' : 
+                             scanType === 'dependency' ? 'Dependency Scan' :
+                             scanType === 'code' ? 'Code Security Scan' : 'URL Scan'
+          }
+        })
+        .eq('id', scanId);
+
+      // Update security stats for authenticated user
+      const { data: currentStats } = await supabase
+        .from('security_stats')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (currentStats && currentStats.length > 0) {
+        const threatsBlocked = currentStats.find(s => s.metric_name === 'threats_blocked');
+        const totalScans = currentStats.find(s => s.metric_name === 'total_scans');
+        const avgResponse = currentStats.find(s => s.metric_name === 'avg_response_time_ms');
+        const securityScore = currentStats.find(s => s.metric_name === 'security_score');
+
+        // Update stats
+        const updates = [
+          {
+            metric_name: 'threats_blocked',
+            metric_value: (threatsBlocked?.metric_value || 0) + totalVulnerabilities,
+            previous_value: threatsBlocked?.metric_value || 0
+          },
+          {
+            metric_name: 'total_scans',
+            metric_value: (totalScans?.metric_value || 0) + 1,
+            previous_value: totalScans?.metric_value || 0
+          },
+          {
+            metric_name: 'avg_response_time_ms',
+            metric_value: Math.round(((avgResponse?.metric_value || 0) * (totalScans?.metric_value || 0) + analysisTime) / ((totalScans?.metric_value || 0) + 1)),
+            previous_value: avgResponse?.metric_value || 0
+          }
+        ];
+
+        for (const update of updates) {
+          await supabase
+            .from('security_stats')
+            .update({ 
+              metric_value: update.metric_value, 
+              previous_value: update.previous_value,
+              updated_at: new Date().toISOString()
+            })
+            .eq('metric_name', update.metric_name)
+            .eq('user_id', userId);
+        }
+
+        // Calculate security score
+        const allVulns = [...enhancedVulnerabilities, ...additionalNVDRecords.map(r => ({ severity: r.severity }))];
+        const criticalCount = allVulns.filter((v: any) => v.severity === 'critical').length;
+        const highCount = allVulns.filter((v: any) => v.severity === 'high').length;
+        const mediumCount = allVulns.filter((v: any) => v.severity === 'medium').length;
+        
+        const scorePenalty = (criticalCount * 15) + (highCount * 10) + (mediumCount * 5);
+        const newScore = Math.max(0, Math.min(100, (securityScore?.metric_value || 100) - scorePenalty));
+        
         await supabase
           .from('security_stats')
           .update({ 
-            metric_value: update.metric_value, 
-            previous_value: update.previous_value,
+            metric_value: newScore, 
+            previous_value: securityScore?.metric_value || 100,
             updated_at: new Date().toISOString()
           })
-          .eq('metric_name', update.metric_name);
+          .eq('metric_name', 'security_score')
+          .eq('user_id', userId);
+      } else {
+        // Initialize stats for new user
+        const statsToCreate = [
+          { metric_name: 'threats_blocked', metric_value: totalVulnerabilities, previous_value: 0, user_id: userId },
+          { metric_name: 'total_scans', metric_value: 1, previous_value: 0, user_id: userId },
+          { metric_name: 'avg_response_time_ms', metric_value: analysisTime, previous_value: 0, user_id: userId },
+          { metric_name: 'vulnerabilities_fixed', metric_value: 0, previous_value: 0, user_id: userId },
+          { metric_name: 'security_score', metric_value: Math.max(0, 100 - (enhancedVulnerabilities.filter((v: any) => v.severity === 'critical').length * 15) - (enhancedVulnerabilities.filter((v: any) => v.severity === 'high').length * 10) - (enhancedVulnerabilities.filter((v: any) => v.severity === 'medium').length * 5)), previous_value: 100, user_id: userId },
+        ];
+        
+        await supabase.from('security_stats').insert(statsToCreate);
       }
-
-      // Calculate security score based on all vulnerabilities including NVD
-      const allVulns = [...enhancedVulnerabilities, ...additionalNVDRecords.map(r => ({ severity: r.severity }))];
-      const criticalCount = allVulns.filter((v: any) => v.severity === 'critical').length;
-      const highCount = allVulns.filter((v: any) => v.severity === 'high').length;
-      const mediumCount = allVulns.filter((v: any) => v.severity === 'medium').length;
-      
-      const scorePenalty = (criticalCount * 15) + (highCount * 10) + (mediumCount * 5);
-      const newScore = Math.max(0, Math.min(100, (securityScore?.metric_value || 100) - scorePenalty));
-      
-      await supabase
-        .from('security_stats')
-        .update({ 
-          metric_value: newScore, 
-          previous_value: securityScore?.metric_value || 100,
-          updated_at: new Date().toISOString()
-        })
-        .eq('metric_name', 'security_score');
     }
 
-    console.log("Scan completed successfully with NVD integration");
+    console.log(`Scan completed successfully${isAuthenticated ? ' (persisted)' : ' (demo mode)'}`);
 
     return new Response(JSON.stringify({
       success: true,
-      scanId,
+      scanId: scanId || 'demo-' + crypto.randomUUID(),
       scanType,
       vulnerabilities: totalVulnerabilities,
       nvdCVEsAdded: additionalNVDRecords.length,
       analysisTime,
+      isDemo: !isAuthenticated,
       results: [
         ...enhancedVulnerabilities.map((v: any) => ({
           ...v,

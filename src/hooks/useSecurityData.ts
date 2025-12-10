@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-// Security data hook - works for all users (authenticated and unauthenticated)
+import { useAuth } from './useAuth';
+
+// Security data hook - authenticated users persist to DB, unauthenticated use local state
 
 interface SecurityStats {
   threats_blocked: number;
@@ -34,7 +36,7 @@ interface StatsChanges {
   security_score: string;
 }
 
-interface Vulnerability {
+export interface Vulnerability {
   id: string;
   name: string;
   description: string | null;
@@ -49,6 +51,7 @@ interface Vulnerability {
   scan_id: string | null;
   notes: string | null;
   resolved_at: string | null;
+  user_id?: string | null;
 }
 
 interface SecurityScan {
@@ -59,35 +62,42 @@ interface SecurityScan {
   created_at: string;
   completed_at: string | null;
   metadata: Record<string, unknown>;
+  user_id?: string | null;
 }
 
+const defaultStats: SecurityStats = {
+  threats_blocked: 0,
+  vulnerabilities_fixed: 0,
+  avg_response_time_ms: 0,
+  security_score: 100,
+  total_scans: 0,
+};
+
+const defaultScoreBreakdown: ScoreBreakdown = {
+  total: 0,
+  resolved: 0,
+  critical: 0,
+  high: 0,
+  medium: 0,
+  low: 0,
+  baseScore: 100,
+  penalty: 0,
+};
+
+const defaultChanges: StatsChanges = {
+  threats_blocked: '+0%',
+  vulnerabilities_fixed: '+0%',
+  avg_response_time_ms: '0%',
+  security_score: '+0%',
+};
+
 export function useSecurityData() {
-  const [stats, setStats] = useState<SecurityStats>({
-    threats_blocked: 0,
-    vulnerabilities_fixed: 0,
-    avg_response_time_ms: 0,
-    security_score: 100,
-    total_scans: 0,
-  });
+  const { user } = useAuth();
+  const isAuthenticated = !!user;
 
-  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown>({
-    total: 0,
-    resolved: 0,
-    critical: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
-    baseScore: 100,
-    penalty: 0,
-  });
-
-  const [changes, setChanges] = useState<StatsChanges>({
-    threats_blocked: '+0%',
-    vulnerabilities_fixed: '+0%',
-    avg_response_time_ms: '0%',
-    security_score: '+0%',
-  });
-
+  const [stats, setStats] = useState<SecurityStats>(defaultStats);
+  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown>(defaultScoreBreakdown);
+  const [changes, setChanges] = useState<StatsChanges>(defaultChanges);
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [scans, setScans] = useState<SecurityScan[]>([]);
   const [scoreHistory, setScoreHistory] = useState<ScoreHistoryEntry[]>([]);
@@ -99,7 +109,59 @@ export function useSecurityData() {
     return change >= 0 ? `+${Math.round(change)}%` : `${Math.round(change)}%`;
   };
 
-  const fetchStats = async () => {
+  const calculateScoreFromVulnerabilities = useCallback((vulns: Vulnerability[]) => {
+    const unresolvedStatuses = ['detected', 'analyzing'];
+    const total = vulns.filter(v => v.status !== 'false_positive').length;
+    const resolved = vulns.filter(v => v.status === 'resolved').length;
+    const critical = vulns.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'critical').length;
+    const high = vulns.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'high').length;
+    const medium = vulns.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'medium').length;
+    const low = vulns.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'low').length;
+    
+    const penalty = (critical * 15) + (high * 10) + (medium * 5) + (low * 2);
+    const calculatedScore = Math.max(0, 100 - penalty);
+    
+    setScoreBreakdown({
+      total,
+      resolved,
+      critical,
+      high,
+      medium,
+      low,
+      baseScore: 100,
+      penalty,
+    });
+    
+    setStats(prev => ({
+      ...prev,
+      security_score: calculatedScore
+    }));
+
+    // Add to score history
+    if (vulns.length > 0) {
+      setScoreHistory(prev => {
+        const lastEntry = prev[prev.length - 1];
+        if (!lastEntry || 
+            lastEntry.score !== calculatedScore || 
+            (Date.now() - new Date(lastEntry.timestamp).getTime() > 5 * 60 * 1000)) {
+          const newEntry: ScoreHistoryEntry = {
+            timestamp: new Date().toISOString(),
+            score: calculatedScore,
+            penalty,
+          };
+          return [...prev.slice(-19), newEntry];
+        }
+        return prev;
+      });
+    }
+
+    return { calculatedScore, penalty };
+  }, []);
+
+  // === DATABASE FUNCTIONS (for authenticated users) ===
+  const fetchStats = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
     const { data, error } = await supabase
       .from('security_stats')
       .select('*');
@@ -110,20 +172,8 @@ export function useSecurityData() {
     }
 
     if (data) {
-      const newStats: SecurityStats = {
-        threats_blocked: 0,
-        vulnerabilities_fixed: 0,
-        avg_response_time_ms: 0,
-        security_score: 100,
-        total_scans: 0,
-      };
-
-      const newChanges: StatsChanges = {
-        threats_blocked: '+0%',
-        vulnerabilities_fixed: '+0%',
-        avg_response_time_ms: '0%',
-        security_score: '+0%',
-      };
+      const newStats: SecurityStats = { ...defaultStats };
+      const newChanges: StatsChanges = { ...defaultChanges };
 
       data.forEach((stat) => {
         const key = stat.metric_name as keyof SecurityStats;
@@ -142,9 +192,11 @@ export function useSecurityData() {
       setStats(newStats);
       setChanges(newChanges);
     }
-  };
+  }, [isAuthenticated]);
 
-  const fetchVulnerabilities = async () => {
+  const fetchVulnerabilities = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
     const { data, error } = await supabase
       .from('vulnerabilities')
       .select('*')
@@ -158,61 +210,13 @@ export function useSecurityData() {
 
     if (data) {
       setVulnerabilities(data as Vulnerability[]);
-      
-      // Calculate score breakdown from vulnerability data
-      // Count unresolved vulnerabilities (detected or analyzing)
-      const unresolvedStatuses = ['detected', 'analyzing'];
-      const total = data.filter(v => v.status !== 'false_positive').length;
-      const resolved = data.filter(v => v.status === 'resolved').length;
-      const critical = data.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'critical').length;
-      const high = data.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'high').length;
-      const medium = data.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'medium').length;
-      const low = data.filter(v => unresolvedStatuses.includes(v.status) && v.severity === 'low').length;
-      
-      // Simple: Start at 100, subtract penalties for unresolved vulns
-      const penalty = (critical * 15) + (high * 10) + (medium * 5) + (low * 2);
-      const calculatedScore = Math.max(0, 100 - penalty);
-      
-      setScoreBreakdown({
-        total,
-        resolved,
-        critical,
-        high,
-        medium,
-        low,
-        baseScore: 100,
-        penalty,
-      });
-      
-      // Update the stats with the calculated score so display is consistent with breakdown
-      setStats(prev => ({
-        ...prev,
-        security_score: calculatedScore
-      }));
-
-      // Add to score history (only if there are vulnerabilities or score changed)
-      if (data.length > 0) {
-        setScoreHistory(prev => {
-          const lastEntry = prev[prev.length - 1];
-          // Only add if score is different from last entry or it's been more than 5 minutes
-          if (!lastEntry || 
-              lastEntry.score !== calculatedScore || 
-              (Date.now() - new Date(lastEntry.timestamp).getTime() > 5 * 60 * 1000)) {
-            const newEntry: ScoreHistoryEntry = {
-              timestamp: new Date().toISOString(),
-              score: calculatedScore,
-              penalty,
-            };
-            // Keep last 20 entries
-            return [...prev.slice(-19), newEntry];
-          }
-          return prev;
-        });
-      }
+      calculateScoreFromVulnerabilities(data as Vulnerability[]);
     }
-  };
+  }, [isAuthenticated, calculateScoreFromVulnerabilities]);
 
-  const fetchScans = async () => {
+  const fetchScans = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
     const { data, error } = await supabase
       .from('security_scans')
       .select('*')
@@ -227,72 +231,186 @@ export function useSecurityData() {
     if (data) {
       setScans(data as SecurityScan[]);
     }
-  };
+  }, [isAuthenticated]);
 
-  const updateVulnerabilityStatus = async (id: string, status: Vulnerability['status'], notes?: string) => {
-    const updateData: Record<string, unknown> = { 
-      status,
-      notes: notes || null,
-      resolved_at: status === 'resolved' ? new Date().toISOString() : null 
+  // === LOCAL STATE FUNCTIONS (for unauthenticated users) ===
+  const addLocalVulnerability = useCallback((vuln: Omit<Vulnerability, 'id' | 'created_at'>) => {
+    const newVuln: Vulnerability = {
+      ...vuln,
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
     };
+    setVulnerabilities(prev => {
+      const updated = [newVuln, ...prev];
+      calculateScoreFromVulnerabilities(updated);
+      return updated;
+    });
+    setStats(prev => ({
+      ...prev,
+      threats_blocked: prev.threats_blocked + 1
+    }));
+    return newVuln;
+  }, [calculateScoreFromVulnerabilities]);
 
-    const { error } = await supabase
-      .from('vulnerabilities')
-      .update(updateData)
-      .eq('id', id);
+  const addLocalVulnerabilities = useCallback((vulns: Omit<Vulnerability, 'id' | 'created_at'>[]) => {
+    const newVulns: Vulnerability[] = vulns.map(v => ({
+      ...v,
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+    }));
+    setVulnerabilities(prev => {
+      const updated = [...newVulns, ...prev];
+      calculateScoreFromVulnerabilities(updated);
+      return updated;
+    });
+    setStats(prev => ({
+      ...prev,
+      threats_blocked: prev.threats_blocked + vulns.length
+    }));
+    return newVulns;
+  }, [calculateScoreFromVulnerabilities]);
 
-    if (error) {
-      console.error('Error updating vulnerability:', error);
-      return false;
-    }
+  const updateVulnerabilityStatus = useCallback(async (id: string, status: Vulnerability['status'], notes?: string) => {
+    if (isAuthenticated) {
+      // Update in database for authenticated users
+      const updateData: Record<string, unknown> = { 
+        status,
+        notes: notes || null,
+        resolved_at: status === 'resolved' ? new Date().toISOString() : null 
+      };
 
-    // Update local state
-    setVulnerabilities(prev => 
-      prev.map(v => v.id === id ? { ...v, status, notes: notes || null } : v)
-    );
+      const { error } = await supabase
+        .from('vulnerabilities')
+        .update(updateData)
+        .eq('id', id);
 
-    // Update fixed count if resolved
-    if (status === 'resolved') {
-      const { data: currentStat } = await supabase
-        .from('security_stats')
-        .select('*')
-        .eq('metric_name', 'vulnerabilities_fixed')
-        .maybeSingle();
+      if (error) {
+        console.error('Error updating vulnerability:', error);
+        return false;
+      }
 
-      if (currentStat) {
-        await supabase
+      // Update fixed count if resolved
+      if (status === 'resolved') {
+        const { data: currentStat } = await supabase
           .from('security_stats')
-          .update({ 
-            metric_value: Number(currentStat.metric_value) + 1,
-            previous_value: currentStat.metric_value,
-            updated_at: new Date().toISOString()
-          })
-          .eq('metric_name', 'vulnerabilities_fixed');
+          .select('*')
+          .eq('metric_name', 'vulnerabilities_fixed')
+          .maybeSingle();
+
+        if (currentStat) {
+          await supabase
+            .from('security_stats')
+            .update({ 
+              metric_value: Number(currentStat.metric_value) + 1,
+              previous_value: currentStat.metric_value,
+              updated_at: new Date().toISOString()
+            })
+            .eq('metric_name', 'vulnerabilities_fixed');
+        }
       }
     }
 
-    return true;
-  };
+    // Update local state (for both authenticated and unauthenticated)
+    setVulnerabilities(prev => {
+      const updated = prev.map(v => v.id === id ? { ...v, status, notes: notes || null } : v);
+      calculateScoreFromVulnerabilities(updated);
+      return updated;
+    });
 
+    if (status === 'resolved') {
+      setStats(prev => ({
+        ...prev,
+        vulnerabilities_fixed: prev.vulnerabilities_fixed + 1
+      }));
+    }
+
+    return true;
+  }, [isAuthenticated, calculateScoreFromVulnerabilities]);
+
+  const resetDashboard = useCallback(async () => {
+    if (isAuthenticated) {
+      // Delete all vulnerabilities for this user
+      const { error: vulnError } = await supabase
+        .from('vulnerabilities')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      if (vulnError) {
+        console.error('Error deleting vulnerabilities:', vulnError);
+        return false;
+      }
+
+      // Delete all scans for this user
+      const { error: scanError } = await supabase
+        .from('security_scans')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      if (scanError) {
+        console.error('Error deleting scans:', scanError);
+        return false;
+      }
+
+      // Reset security stats
+      const statsToReset = ['threats_blocked', 'vulnerabilities_fixed', 'avg_response_time_ms', 'security_score', 'total_scans'];
+      for (const metricName of statsToReset) {
+        await supabase
+          .from('security_stats')
+          .upsert({
+            metric_name: metricName,
+            metric_value: metricName === 'security_score' ? 100 : 0,
+            previous_value: 0,
+            updated_at: new Date().toISOString(),
+            user_id: user?.id
+          }, { onConflict: 'metric_name' });
+      }
+    }
+
+    // Reset local state (for both authenticated and unauthenticated)
+    setVulnerabilities([]);
+    setScans([]);
+    setStats(defaultStats);
+    setScoreBreakdown(defaultScoreBreakdown);
+    setChanges(defaultChanges);
+    setScoreHistory([]);
+
+    return true;
+  }, [isAuthenticated, user?.id]);
+
+  // Load data on mount and when auth state changes
   useEffect(() => {
-    // Load data for all users (authenticated or not)
     const loadData = async () => {
       setIsLoading(true);
-      await Promise.all([fetchStats(), fetchVulnerabilities(), fetchScans()]);
+      
+      if (isAuthenticated) {
+        // Fetch from database for authenticated users
+        await Promise.all([fetchStats(), fetchVulnerabilities(), fetchScans()]);
+      } else {
+        // For unauthenticated users, start with clean state
+        setStats(defaultStats);
+        setScoreBreakdown(defaultScoreBreakdown);
+        setChanges(defaultChanges);
+        setVulnerabilities([]);
+        setScans([]);
+        setScoreHistory([]);
+      }
+      
       setIsLoading(false);
     };
 
     loadData();
+  }, [isAuthenticated, fetchStats, fetchVulnerabilities, fetchScans]);
 
-    // Subscribe to real-time updates for all users
+  // Subscribe to real-time updates for authenticated users only
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
     const statsChannel = supabase
       .channel('security_stats_changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'security_stats' },
-        () => {
-          fetchStats();
-        }
+        () => fetchStats()
       )
       .subscribe();
 
@@ -301,9 +419,7 @@ export function useSecurityData() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'vulnerabilities' },
-        () => {
-          fetchVulnerabilities();
-        }
+        () => fetchVulnerabilities()
       )
       .subscribe();
 
@@ -312,9 +428,7 @@ export function useSecurityData() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'security_scans' },
-        () => {
-          fetchScans();
-        }
+        () => fetchScans()
       )
       .subscribe();
 
@@ -323,51 +437,7 @@ export function useSecurityData() {
       supabase.removeChannel(vulnChannel);
       supabase.removeChannel(scansChannel);
     };
-  }, []);
-
-  const resetDashboard = async () => {
-    // Delete all vulnerabilities
-    const { error: vulnError } = await supabase
-      .from('vulnerabilities')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
-
-    if (vulnError) {
-      console.error('Error deleting vulnerabilities:', vulnError);
-      return false;
-    }
-
-    // Delete all scans
-    const { error: scanError } = await supabase
-      .from('security_scans')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
-
-    if (scanError) {
-      console.error('Error deleting scans:', scanError);
-      return false;
-    }
-
-    // Reset security stats
-    const statsToReset = ['threats_blocked', 'vulnerabilities_fixed', 'avg_response_time_ms', 'security_score', 'total_scans'];
-    for (const metricName of statsToReset) {
-      await supabase
-        .from('security_stats')
-        .upsert({
-          metric_name: metricName,
-          metric_value: metricName === 'security_score' ? 100 : 0,
-          previous_value: 0,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'metric_name' });
-    }
-
-    // Reset score history
-    setScoreHistory([]);
-
-    // Refetch to update UI
-    await Promise.all([fetchStats(), fetchVulnerabilities(), fetchScans()]);
-    return true;
-  };
+  }, [isAuthenticated, fetchStats, fetchVulnerabilities, fetchScans]);
 
   return {
     stats,
@@ -377,10 +447,16 @@ export function useSecurityData() {
     vulnerabilities,
     scans,
     isLoading,
+    isAuthenticated,
     refetch: async () => {
-      await Promise.all([fetchStats(), fetchVulnerabilities(), fetchScans()]);
+      if (isAuthenticated) {
+        await Promise.all([fetchStats(), fetchVulnerabilities(), fetchScans()]);
+      }
     },
     updateVulnerabilityStatus,
     resetDashboard,
+    // Local state management for unauthenticated users
+    addLocalVulnerability,
+    addLocalVulnerabilities,
   };
 }
