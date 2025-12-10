@@ -1,15 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, Mail, Lock, ArrowLeft } from 'lucide-react';
+import { Loader2, Mail, Lock, ArrowLeft, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import { z } from 'zod';
+import zxcvbn from 'zxcvbn';
+import { cn } from '@/lib/utils';
 
 const emailSchema = z.string().email('Please enter a valid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+const passwordSchema = z.string().min(8, 'Password must be at least 8 characters');
+
+interface PasswordStrength {
+  score: number;
+  feedback: {
+    warning: string;
+    suggestions: string[];
+  };
+  crackTime: string;
+}
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -19,6 +30,27 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
+
+  // Calculate password strength using zxcvbn
+  const passwordStrength = useMemo((): PasswordStrength | null => {
+    if (!password || isLogin) return null;
+    
+    const result = zxcvbn(password, [email.split('@')[0], 'aegis', 'security']);
+    return {
+      score: result.score,
+      feedback: result.feedback,
+      crackTime: result.crack_times_display.offline_slow_hashing_1e4_per_second as string,
+    };
+  }, [password, email, isLogin]);
+
+  const strengthLabels = ['Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong'];
+  const strengthColors = [
+    'bg-destructive',
+    'bg-orange-500',
+    'bg-amber-500',
+    'bg-primary',
+    'bg-success',
+  ];
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -47,6 +79,11 @@ const Auth = () => {
     const passwordResult = passwordSchema.safeParse(password);
     if (!passwordResult.success) {
       newErrors.password = passwordResult.error.errors[0].message;
+    }
+    
+    // For signup, require minimum password strength
+    if (!isLogin && passwordStrength && passwordStrength.score < 2) {
+      newErrors.password = 'Password is too weak. Please choose a stronger password.';
     }
     
     if (!isLogin && password !== confirmPassword) {
@@ -171,6 +208,70 @@ const Auth = () => {
                 />
               </div>
               {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+              
+              {/* Password Strength Indicator - only show during signup */}
+              {!isLogin && password && passwordStrength && (
+                <div className="space-y-2 pt-1">
+                  {/* Strength Bar */}
+                  <div className="flex gap-1">
+                    {[0, 1, 2, 3, 4].map((level) => (
+                      <div
+                        key={level}
+                        className={cn(
+                          'h-1.5 flex-1 rounded-full transition-colors',
+                          level <= passwordStrength.score
+                            ? strengthColors[passwordStrength.score]
+                            : 'bg-muted'
+                        )}
+                      />
+                    ))}
+                  </div>
+                  
+                  {/* Strength Label and Crack Time */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      {passwordStrength.score >= 2 ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-success" />
+                      ) : (
+                        <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
+                      )}
+                      <span className={cn(
+                        'text-xs font-medium',
+                        passwordStrength.score >= 3 ? 'text-success' :
+                        passwordStrength.score >= 2 ? 'text-primary' :
+                        passwordStrength.score >= 1 ? 'text-amber-500' : 'text-destructive'
+                      )}>
+                        {strengthLabels[passwordStrength.score]}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Crack time: {passwordStrength.crackTime}
+                    </span>
+                  </div>
+                  
+                  {/* Warning */}
+                  {passwordStrength.feedback.warning && (
+                    <div className="flex items-start gap-2 p-2 rounded-md bg-destructive/10 border border-destructive/20">
+                      <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                      <p className="text-xs text-destructive">
+                        {passwordStrength.feedback.warning}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Suggestions */}
+                  {passwordStrength.feedback.suggestions.length > 0 && passwordStrength.score < 3 && (
+                    <div className="flex items-start gap-2 p-2 rounded-md bg-muted/50 border border-border">
+                      <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="text-xs text-muted-foreground">
+                        {passwordStrength.feedback.suggestions.map((suggestion, i) => (
+                          <p key={i}>{suggestion}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {!isLogin && (
@@ -192,7 +293,11 @@ const Auth = () => {
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading || (!isLogin && passwordStrength && passwordStrength.score < 2)}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
