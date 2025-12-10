@@ -1,10 +1,10 @@
 project_id = "luamoosjnemirijjutig"
 
 [functions.security-agent]
-verify_jwt = false
+verify_jwt = true
 
 [functions.code-scanner]
-verify_jwt = false
+verify_jwt = true
 
 [functions.nvd-cve-lookup]
 verify_jwt = false

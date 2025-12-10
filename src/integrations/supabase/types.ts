@@ -83,6 +83,7 @@ export type Database = {
           scan_type: string
           status: string
           target: string
+          user_id: string | null
         }
         Insert: {
           completed_at?: string | null
@@ -92,6 +93,7 @@ export type Database = {
           scan_type: string
           status?: string
           target: string
+          user_id?: string | null
         }
         Update: {
           completed_at?: string | null
@@ -101,6 +103,7 @@ export type Database = {
           scan_type?: string
           status?: string
           target?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -111,6 +114,7 @@ export type Database = {
           metric_value: number
           previous_value: number | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           id?: string
@@ -118,6 +122,7 @@ export type Database = {
           metric_value?: number
           previous_value?: number | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           id?: string
@@ -125,6 +130,7 @@ export type Database = {
           metric_value?: number
           previous_value?: number | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -144,6 +150,7 @@ export type Database = {
           scan_id: string | null
           severity: string
           status: string
+          user_id: string | null
         }
         Insert: {
           category: string
@@ -160,6 +167,7 @@ export type Database = {
           scan_id?: string | null
           severity: string
           status?: string
+          user_id?: string | null
         }
         Update: {
           category?: string
@@ -176,6 +184,7 @@ export type Database = {
           scan_id?: string | null
           severity?: string
           status?: string
+          user_id?: string | null
         }
         Relationships: [
           {

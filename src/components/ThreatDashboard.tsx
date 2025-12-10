@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -34,7 +35,7 @@ interface StatusDialogState {
 }
 
 const ThreatDashboard = () => {
-  const { stats, changes, scoreBreakdown, scoreHistory, vulnerabilities, isLoading, updateVulnerabilityStatus, resetDashboard } = useSecurityData();
+  const { stats, changes, scoreBreakdown, scoreHistory, vulnerabilities, isLoading, updateVulnerabilityStatus, resetDashboard, addLocalVulnerabilities } = useSecurityData();
   const [scanProgress, setScanProgress] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [input, setInput] = useState('');
@@ -104,11 +105,15 @@ const ThreatDashboard = () => {
       else if (scanType === 'dependency') body.dependencies = input;
       else if (scanType === 'llm_protection') body.prompt = input;
 
+      // Get the user's access token if authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/code-scanner`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify(body),
       });
@@ -120,10 +125,30 @@ const ThreatDashboard = () => {
 
       if (data.success) {
         setLastResults(data.results || []);
+        
+        // For unauthenticated users, add vulnerabilities to local state
+        if (data.isDemo && data.results && data.results.length > 0) {
+          addLocalVulnerabilities(data.results.map((r: any) => ({
+            name: r.name,
+            description: r.description,
+            severity: r.severity,
+            category: r.category,
+            location: r.location,
+            remediation: r.remediation,
+            cve_id: r.cve_id,
+            cvss_score: r.cvss_score,
+            status: 'detected' as const,
+            scan_id: null,
+            notes: null,
+            resolved_at: null
+          })));
+        }
+        
         if (data.vulnerabilities === 0) {
           toast.success('No threats detected');
         } else {
-          toast.warning(`Found ${data.vulnerabilities} potential issue${data.vulnerabilities > 1 ? 's' : ''}`);
+          const demoNote = data.isDemo ? ' (Demo mode - data not saved)' : '';
+          toast.warning(`Found ${data.vulnerabilities} potential issue${data.vulnerabilities > 1 ? 's' : ''}${demoNote}`);
         }
         setInput('');
       } else {
