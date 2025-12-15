@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Code, AlertTriangle, Sparkles, Scan, Trash2, History, MessageSquare, X, LogIn, Upload, FileCode } from 'lucide-react';
+import { Send, Bot, User, Loader2, Code, AlertTriangle, Sparkles, Scan, Trash2, History, MessageSquare, X, LogIn, Upload, FileCode, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  isRateLimitError?: boolean;
 }
 
 interface ChatSession {
@@ -24,6 +25,12 @@ interface ChatSession {
 
 type AgentMode = 'security' | 'code_review' | 'threat_intel' | 'general';
 
+interface RateLimitError {
+  type: 'rate_limit' | 'payment_required';
+  message: string;
+  lastInput: string;
+}
+
 const SecurityAgent = () => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -35,6 +42,7 @@ const SecurityAgent = () => {
   const [mode, setMode] = useState<AgentMode>('security');
   const [showHistory, setShowHistory] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [rateLimitError, setRateLimitError] = useState<RateLimitError | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -222,11 +230,18 @@ const SecurityAgent = () => {
     }
   };
 
-  const streamChat = async (userMessage: string) => {
+  const streamChat = async (userMessage: string, isRetry = false) => {
     setIsLoading(true);
-    const newMessages: Message[] = [...messages, { role: 'user', content: userMessage, timestamp: Date.now() }];
-    setMessages(newMessages);
-    setInput('');
+    setRateLimitError(null);
+    
+    const newMessages: Message[] = isRetry 
+      ? messages 
+      : [...messages, { role: 'user', content: userMessage, timestamp: Date.now() }];
+    
+    if (!isRetry) {
+      setMessages(newMessages);
+      setInput('');
+    }
 
     let assistantContent = '';
 
@@ -242,6 +257,29 @@ const SecurityAgent = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        
+        // Handle rate limit errors
+        if (response.status === 429) {
+          setRateLimitError({
+            type: 'rate_limit',
+            message: 'Rate limit exceeded. Please wait a moment before trying again.',
+            lastInput: userMessage
+          });
+          toast.error('Rate limit reached. Please wait before retrying.');
+          return;
+        }
+        
+        // Handle payment required errors
+        if (response.status === 402) {
+          setRateLimitError({
+            type: 'payment_required',
+            message: 'AI credits exhausted. Please add credits to continue using the agents.',
+            lastInput: userMessage
+          });
+          toast.error('Credits exhausted. Please add more credits.');
+          return;
+        }
+        
         throw new Error(errorData.error || 'Failed to get response');
       }
 
@@ -289,13 +327,20 @@ const SecurityAgent = () => {
       saveSession(finalMessages);
     } catch (error) {
       console.error('Chat error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Something went wrong.';
       const errorMessages: Message[] = [
         ...newMessages,
-        { role: 'assistant', content: `Error: ${error instanceof Error ? error.message : 'Something went wrong.'}`, timestamp: Date.now() },
+        { role: 'assistant', content: `Error: ${errorMessage}`, timestamp: Date.now(), isRateLimitError: true },
       ];
       setMessages(errorMessages);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRetry = () => {
+    if (rateLimitError) {
+      streamChat(rateLimitError.lastInput, true);
     }
   };
 
@@ -544,22 +589,54 @@ const SecurityAgent = () => {
                     )}
                   >
                     {message.role === 'assistant' ? (
-                      <div className="prose prose-sm max-w-none dark:prose-invert text-sm">
+                      <div className={cn(
+                        "prose prose-sm max-w-none dark:prose-invert text-sm",
+                        mode === 'code_review' && "codex-output"
+                      )}>
                         <ReactMarkdown
                           components={{
+                            h1: ({ children }) => (
+                              <h1 className="text-base font-bold text-foreground mt-4 mb-2 first:mt-0 border-b border-border pb-1">{children}</h1>
+                            ),
+                            h2: ({ children }) => (
+                              <h2 className="text-sm font-bold text-foreground mt-3 mb-1.5">{children}</h2>
+                            ),
+                            h3: ({ children }) => (
+                              <h3 className="text-sm font-semibold text-foreground mt-2 mb-1">{children}</h3>
+                            ),
+                            strong: ({ children }) => (
+                              <strong className="font-semibold text-foreground">{children}</strong>
+                            ),
+                            ul: ({ children }) => (
+                              <ul className="list-disc list-outside ml-4 my-1.5 space-y-0.5">{children}</ul>
+                            ),
+                            ol: ({ children }) => (
+                              <ol className="list-decimal list-outside ml-4 my-1.5 space-y-0.5">{children}</ol>
+                            ),
+                            li: ({ children }) => (
+                              <li className="text-muted-foreground leading-relaxed">{children}</li>
+                            ),
                             code: ({ className, children, ...props }) => {
                               const isInline = !className;
                               return isInline ? (
-                                <code className="bg-background/50 px-1 py-0.5 rounded text-xs" {...props}>
+                                <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
                                   {children}
                                 </code>
                               ) : (
-                                <code className="block bg-background p-2 rounded text-xs overflow-x-auto" {...props}>
+                                <code className="block bg-background border border-border p-3 rounded-lg text-xs font-mono overflow-x-auto whitespace-pre" {...props}>
                                   {children}
                                 </code>
                               );
                             },
-                            pre: ({ children }) => <pre className="bg-transparent p-0">{children}</pre>,
+                            pre: ({ children }) => (
+                              <pre className="bg-transparent p-0 my-2">{children}</pre>
+                            ),
+                            p: ({ children }) => (
+                              <p className="text-muted-foreground leading-relaxed my-1.5">{children}</p>
+                            ),
+                            blockquote: ({ children }) => (
+                              <blockquote className="border-l-2 border-primary/50 pl-3 my-2 italic text-muted-foreground">{children}</blockquote>
+                            ),
                           }}
                         >
                           {message.content}
@@ -594,6 +671,45 @@ const SecurityAgent = () => {
                 </div>
               </div>
             )}
+            
+            {/* Rate limit error UI */}
+            {rateLimitError && !isLoading && (
+              <div className="flex gap-2">
+                <div className="w-7 h-7 rounded flex items-center justify-center bg-destructive/10">
+                  <AlertCircle className="w-4 h-4 text-destructive" />
+                </div>
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-3 max-w-[80%]">
+                  <p className="text-sm text-destructive font-medium mb-2">
+                    {rateLimitError.type === 'rate_limit' ? 'Rate Limit Reached' : 'Credits Exhausted'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {rateLimitError.message}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleRetry}
+                      className="h-7 text-xs"
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Retry
+                    </Button>
+                    {rateLimitError.type === 'payment_required' && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => window.open('https://lovable.dev/settings', '_blank')}
+                        className="h-7 text-xs"
+                      >
+                        Add Credits
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div ref={messagesEndRef} />
           </div>
 
