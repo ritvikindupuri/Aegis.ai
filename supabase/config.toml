@@ -16,4 +16,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-vulnerability-alert]
-verify_jwt = true
+verify_jwt = false
+
+[functions.scheduled-github-scan]
+verify_jwt = false

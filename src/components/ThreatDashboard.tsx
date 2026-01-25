@@ -889,6 +889,21 @@ const ThreatDashboard = () => {
                     <div className="flex items-center gap-2">
                       <Bell className="w-3.5 h-3.5 text-muted-foreground" />
                       <span className="text-xs font-medium">Email Alerts</span>
+                      <div className="relative group">
+                        <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-popover border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                          <p className="text-[11px] font-medium text-foreground mb-2">How to set up email alerts:</p>
+                          <ol className="text-[10px] text-muted-foreground space-y-1.5 list-decimal list-inside">
+                            <li>Toggle the switch to enable alerts</li>
+                            <li>Enter the email address where you want to receive notifications</li>
+                            <li>Run a GitHub scan on any repository</li>
+                            <li>If critical or high vulnerabilities are found, you'll receive an email alert</li>
+                          </ol>
+                          <p className="text-[10px] text-muted-foreground mt-2 pt-2 border-t border-border">
+                            <strong>Note:</strong> Scheduled daily scans will also use this email for alerts.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                     <button
                       onClick={() => setEnableNotifications(!enableNotifications)}
