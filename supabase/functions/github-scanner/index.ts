@@ -95,13 +95,13 @@ function parseGitHubUrl(url: string): { owner: string; repo: string; branch?: st
   }
 }
 
-// Fetch repository files recursively
+// Fetch repository files recursively - scans ALL files up to limit
 async function fetchRepoFiles(
   owner: string, 
   repo: string, 
   path: string = '', 
   branch: string = 'main',
-  maxFiles: number = 50
+  maxFiles: number = 200
 ): Promise<GitHubFile[]> {
   const files: GitHubFile[] = [];
   const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN');
@@ -279,7 +279,7 @@ serve(async (req) => {
     const isAuthenticated = !!userId;
     console.log(`GitHub scan - Authenticated: ${isAuthenticated}`);
 
-    const { repoUrl, maxFiles = 30 } = await req.json();
+    const { repoUrl, maxFiles = 100 } = await req.json();
     
     if (!repoUrl) {
       return new Response(
@@ -305,7 +305,7 @@ serve(async (req) => {
     console.log(`Scanning repository: ${parsed.owner}/${parsed.repo}`);
 
     // Fetch repository files
-    const files = await fetchRepoFiles(parsed.owner, parsed.repo, '', parsed.branch, Math.min(maxFiles, 50));
+    const files = await fetchRepoFiles(parsed.owner, parsed.repo, '', parsed.branch, Math.min(maxFiles, 200));
     
     if (files.length === 0) {
       return new Response(

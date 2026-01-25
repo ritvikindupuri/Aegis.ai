@@ -7,7 +7,11 @@ import Footer from '@/components/Footer';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Subtle animated background */}
+      <div className="animated-bg" />
+      <div className="grid-overlay" />
+      
       <Navbar />
       
       <main>

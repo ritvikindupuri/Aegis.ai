@@ -118,6 +118,68 @@
   }
 }
 
+/* Animated background */
+.animated-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.animated-bg::before {
+  content: '';
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  top: -25%;
+  left: -25%;
+  background: 
+    radial-gradient(ellipse 600px 600px at 20% 30%, hsl(var(--primary) / 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 500px 500px at 80% 70%, hsl(280 100% 70% / 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 400px 400px at 60% 20%, hsl(var(--primary) / 0.05) 0%, transparent 50%);
+  animation: float 20s ease-in-out infinite;
+}
+
+.animated-bg::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle 300px at 10% 80%, hsl(280 100% 70% / 0.04) 0%, transparent 50%),
+    radial-gradient(circle 250px at 90% 10%, hsl(var(--primary) / 0.06) 0%, transparent 50%);
+  animation: float 15s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(2%, 2%) rotate(1deg);
+  }
+  50% {
+    transform: translate(-1%, 3%) rotate(-1deg);
+  }
+  75% {
+    transform: translate(1%, -2%) rotate(0.5deg);
+  }
+}
+
+/* Subtle grid overlay */
+.grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: 
+    linear-gradient(hsl(var(--border) / 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.3) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 70%);
+  pointer-events: none;
+}
+
 /* Clean scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
