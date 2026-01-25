@@ -1,4 +1,4 @@
-import { Code, Brain, Eye, Workflow, Scan, Lock } from 'lucide-react';
+import { Code, Brain, Eye, Workflow, Scan, Lock, Github } from 'lucide-react';
 import FeatureCard from './FeatureCard';
 
 const Features = () => {
@@ -7,6 +7,11 @@ const Features = () => {
       icon: Code,
       title: 'Code Security Analysis',
       description: 'AI-powered static analysis detects vulnerabilities in code with remediation suggestions.',
+    },
+    {
+      icon: Github,
+      title: 'GitHub Repository Scanning',
+      description: 'Scan entire GitHub repositories for vulnerabilities with daily automated monitoring.',
     },
     {
       icon: Brain,

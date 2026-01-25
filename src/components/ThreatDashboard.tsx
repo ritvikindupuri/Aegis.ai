@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode, Github, Mail, Bell } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode, Github, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { useUserUsage } from '@/hooks/useUserUsage';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +26,7 @@ import {
 import { toast } from 'sonner';
 import ScoreHistoryChart from './ScoreHistoryChart';
 import { UsageCounter } from './UsageCounter';
+import ScheduledScans from './ScheduledScans';
 
 type ScanType = 'code' | 'dependency' | 'llm_protection' | 'github';
 type StatusAction = 'resolved' | 'analyzing' | 'false_positive' | null;
@@ -40,13 +42,11 @@ interface StatusDialogState {
 const ThreatDashboard = () => {
   const { stats, changes, scoreBreakdown, scoreHistory, vulnerabilities, isLoading, updateVulnerabilityStatus, resetDashboard, addLocalVulnerabilities } = useSecurityData();
   const { checkAndIncrementUsage, remainingScanRequests, hourlyLimit } = useUserUsage();
+  const { user } = useAuth();
   const [scanProgress, setScanProgress] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [input, setInput] = useState('');
   const [githubUrl, setGithubUrl] = useState('');
-  const [notificationEmail, setNotificationEmail] = useState('');
-  const [enableNotifications, setEnableNotifications] = useState(false);
-  const [isSendingAlert, setIsSendingAlert] = useState(false);
   const [scanType, setScanType] = useState<ScanType>('code');
   const [lastResults, setLastResults] = useState<any[]>([]);
   const [githubResults, setGithubResults] = useState<any>(null);
@@ -62,6 +62,18 @@ const ThreatDashboard = () => {
   const [expandedVulns, setExpandedVulns] = useState<Set<string>>(new Set());
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Filter scan types based on auth status - GitHub only for authenticated users
+  const availableScanTypes = user ? [
+    { id: 'code' as const, label: 'Code', icon: Code, placeholder: 'Paste code to analyze for vulnerabilities...' },
+    { id: 'dependency' as const, label: 'Dependencies', icon: FileJson, placeholder: 'Paste package.json or dependency list...' },
+    { id: 'llm_protection' as const, label: 'LLM Shield', icon: MessageSquare, placeholder: 'Paste prompt or input to check for injection attacks...' },
+    { id: 'github' as const, label: 'GitHub', icon: Github, placeholder: 'Paste GitHub repository URL...' },
+  ] : [
+    { id: 'code' as const, label: 'Code', icon: Code, placeholder: 'Paste code to analyze for vulnerabilities...' },
+    { id: 'dependency' as const, label: 'Dependencies', icon: FileJson, placeholder: 'Paste package.json or dependency list...' },
+    { id: 'llm_protection' as const, label: 'LLM Shield', icon: MessageSquare, placeholder: 'Paste prompt or input to check for injection attacks...' },
+  ];
 
   const handleReset = async () => {
     setIsResetting(true);
@@ -88,12 +100,7 @@ const ThreatDashboard = () => {
     });
   };
 
-  const scanTypes = [
-    { id: 'code' as const, label: 'Code', icon: Code, placeholder: 'Paste code to analyze for vulnerabilities...' },
-    { id: 'dependency' as const, label: 'Dependencies', icon: FileJson, placeholder: 'Paste package.json or dependency list...' },
-    { id: 'llm_protection' as const, label: 'LLM Shield', icon: MessageSquare, placeholder: 'Paste prompt or input to check for injection attacks...' },
-    { id: 'github' as const, label: 'GitHub', icon: Github, placeholder: 'Paste GitHub repository URL...' },
-  ];
+  const scanTypes = availableScanTypes;
 
   const runGitHubScan = async () => {
     if (!githubUrl.trim()) {
@@ -160,11 +167,6 @@ const ThreatDashboard = () => {
           }
         }
 
-        // Send email notification if enabled and critical/high vulnerabilities found
-        if (enableNotifications && notificationEmail && (data.summary?.critical > 0 || data.summary?.high > 0)) {
-          sendVulnerabilityAlert(data);
-        }
-
         if (data.totalVulnerabilities === 0) {
           toast.success(`Scanned ${data.filesScanned} files - no vulnerabilities found`);
         } else {
@@ -185,62 +187,6 @@ const ThreatDashboard = () => {
       }, 500);
     }
   };
-
-  const sendVulnerabilityAlert = async (scanData: any) => {
-    if (!notificationEmail || !scanData.repository) return;
-    
-    setIsSendingAlert(true);
-    
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        toast.error('Please log in to enable email notifications');
-        return;
-      }
-
-      const allVulns = scanData.results?.flatMap((r: any) => r.vulnerabilities) || [];
-      
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-vulnerability-alert`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          email: notificationEmail,
-          repository: scanData.repository,
-          vulnerabilities: allVulns,
-          scanSummary: {
-            critical: scanData.summary?.critical || 0,
-            high: scanData.summary?.high || 0,
-            medium: scanData.summary?.medium || 0,
-            low: scanData.summary?.low || 0,
-            filesScanned: scanData.filesScanned || 0,
-          },
-        }),
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success(`Security alert sent to ${notificationEmail}`, {
-          description: 'Check your inbox for the vulnerability report',
-          icon: <Mail className="w-4 h-4" />,
-        });
-      } else {
-        console.error('Email alert failed:', result.error);
-        toast.error('Failed to send email alert', {
-          description: result.error || 'Please check your email configuration',
-        });
-      }
-    } catch (error) {
-      console.error('Error sending vulnerability alert:', error);
-      toast.error('Failed to send email notification');
-    } finally {
-      setIsSendingAlert(false);
-    }
-  };
-
 
   const runScan = async () => {
     if (scanType === 'github') {
@@ -794,7 +740,7 @@ const ThreatDashboard = () => {
             </div>
 
             {/* Scan type selector */}
-            <div className="grid grid-cols-4 gap-1.5 mb-4">
+            <div className={cn("grid gap-1.5 mb-4", user ? "grid-cols-4" : "grid-cols-3")}>
               {scanTypes.map((type) => (
                 <button
                   key={type.id}
@@ -812,6 +758,22 @@ const ThreatDashboard = () => {
                 </button>
               ))}
             </div>
+            
+            {/* Sign in prompt for GitHub scanning */}
+            {!user && (
+              <div className="mb-4 p-3 rounded-lg bg-muted/50 border border-border">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span className="font-medium text-foreground">GitHub Scanning</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  Sign in to scan entire GitHub repositories and set up daily automated monitoring.
+                </p>
+                <a href="/auth" className="text-[10px] text-primary hover:underline font-medium">
+                  Sign in to unlock →
+                </a>
+              </div>
+            )}
 
             {/* File Upload for Code scan */}
             {scanType === 'code' && (
@@ -883,67 +845,6 @@ const ThreatDashboard = () => {
                   Scans up to 100 code files. Supports public &amp; private repositories.
                 </p>
                 
-                {/* Email Notification Settings */}
-                <div className="p-3 rounded-lg bg-muted/30 border border-border space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-xs font-medium">Email Alerts</span>
-                      <div className="relative group">
-                        <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
-                        <div className="absolute left-0 bottom-full mb-2 w-72 p-3 bg-popover border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                          <p className="text-[11px] font-medium text-foreground mb-2">📧 Email Delivery Status</p>
-                          <p className="text-[10px] text-muted-foreground mb-2">
-                            Email alerts require the platform administrator to complete setup:
-                          </p>
-                          <div className="text-[10px] text-muted-foreground space-y-1.5 mb-2">
-                            <p><span className="font-medium text-foreground">1.</span> Create account at resend.com</p>
-                            <p><span className="font-medium text-foreground">2.</span> Verify a sending domain (resend.com/domains)</p>
-                            <p><span className="font-medium text-foreground">3.</span> Add DNS records (SPF, DKIM) to your domain</p>
-                            <p><span className="font-medium text-foreground">4.</span> Contact admin to update the email sender address</p>
-                          </div>
-                          <div className="text-[10px] bg-muted/50 p-2 rounded mt-2">
-                            <p className="text-muted-foreground">
-                              <span className="font-medium text-foreground">Current status:</span> Using Resend test domain. Emails only deliver to the Resend account owner's email.
-                            </p>
-                          </div>
-                          <p className="text-[10px] text-primary mt-2">
-                            Contact your administrator to enable full email delivery.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setEnableNotifications(!enableNotifications)}
-                      className={cn(
-                        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-                        enableNotifications ? "bg-primary" : "bg-muted-foreground/30"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                          enableNotifications ? "translate-x-4" : "translate-x-0.5"
-                        )}
-                      />
-                    </button>
-                  </div>
-                  {enableNotifications && (
-                    <div className="space-y-1.5">
-                      <Input
-                        type="email"
-                        value={notificationEmail}
-                        onChange={(e) => setNotificationEmail(e.target.value)}
-                        placeholder="your@email.com"
-                        className="text-xs h-8"
-                        disabled={isScanning}
-                      />
-                      <p className="text-[10px] text-muted-foreground">
-                        Get notified when critical or high severity vulnerabilities are found.
-                      </p>
-                    </div>
-                  )}
-                </div>
                 {githubResults && (
                   <div className="p-3 rounded-lg bg-muted/50 border border-border">
                     <div className="flex items-center justify-between mb-2">
@@ -1085,8 +986,11 @@ const ThreatDashboard = () => {
             )}
           </div>
 
+          {/* Scheduled Scans - only for authenticated users */}
+          {user && <ScheduledScans />}
+
           {/* Vulnerability feed */}
-          <div className="lg:col-span-2 rounded-lg border border-border bg-card p-5">
+          <div className={cn("rounded-lg border border-border bg-card p-5", user ? "lg:col-span-1" : "lg:col-span-2")}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-foreground text-sm">Vulnerability Feed</h3>
               <div className="flex items-center gap-2">
