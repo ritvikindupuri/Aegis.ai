@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Code, AlertTriangle, Sparkles, Scan, Trash2, History, MessageSquare, X, LogIn, Upload, FileCode, RefreshCw, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Loader2, Code, AlertTriangle, Sparkles, Scan, Trash2, History, MessageSquare, X, LogIn, Upload, FileCode, RefreshCw, AlertCircle, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserUsage } from '@/hooks/useUserUsage';
 import { supabase } from '@/integrations/supabase/client';
+import { UsageCounter } from './UsageCounter';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -33,6 +35,7 @@ interface RateLimitError {
 
 const SecurityAgent = () => {
   const { user } = useAuth();
+  const { checkAndIncrementUsage, remainingAgentRequests } = useUserUsage();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -231,6 +234,18 @@ const SecurityAgent = () => {
   };
 
   const streamChat = async (userMessage: string, isRetry = false) => {
+    // Check rate limit before making request
+    const usageCheck = await checkAndIncrementUsage('agent');
+    if (!usageCheck.allowed) {
+      setRateLimitError({
+        type: 'rate_limit',
+        message: usageCheck.error || 'Rate limit exceeded. Please wait before trying again.',
+        lastInput: userMessage
+      });
+      toast.error(usageCheck.error || 'Rate limit exceeded');
+      return;
+    }
+
     setIsLoading(true);
     setRateLimitError(null);
     

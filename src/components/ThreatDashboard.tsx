@@ -1,11 +1,13 @@
 import { useState, useRef } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode, Github } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
+import { useUserUsage } from '@/hooks/useUserUsage';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,8 +24,9 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import ScoreHistoryChart from './ScoreHistoryChart';
+import { UsageCounter } from './UsageCounter';
 
-type ScanType = 'code' | 'dependency' | 'llm_protection';
+type ScanType = 'code' | 'dependency' | 'llm_protection' | 'github';
 type StatusAction = 'resolved' | 'analyzing' | 'false_positive' | null;
 
 interface StatusDialogState {
@@ -36,11 +39,14 @@ interface StatusDialogState {
 
 const ThreatDashboard = () => {
   const { stats, changes, scoreBreakdown, scoreHistory, vulnerabilities, isLoading, updateVulnerabilityStatus, resetDashboard, addLocalVulnerabilities } = useSecurityData();
+  const { checkAndIncrementUsage, remainingScanRequests, hourlyLimit } = useUserUsage();
   const [scanProgress, setScanProgress] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [input, setInput] = useState('');
+  const [githubUrl, setGithubUrl] = useState('');
   const [scanType, setScanType] = useState<ScanType>('code');
   const [lastResults, setLastResults] = useState<any[]>([]);
+  const [githubResults, setGithubResults] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [statusDialog, setStatusDialog] = useState<StatusDialogState>({
@@ -83,11 +89,109 @@ const ThreatDashboard = () => {
     { id: 'code' as const, label: 'Code', icon: Code, placeholder: 'Paste code to analyze for vulnerabilities...' },
     { id: 'dependency' as const, label: 'Dependencies', icon: FileJson, placeholder: 'Paste package.json or dependency list...' },
     { id: 'llm_protection' as const, label: 'LLM Shield', icon: MessageSquare, placeholder: 'Paste prompt or input to check for injection attacks...' },
+    { id: 'github' as const, label: 'GitHub', icon: Github, placeholder: 'Paste GitHub repository URL...' },
   ];
 
+  const runGitHubScan = async () => {
+    if (!githubUrl.trim()) {
+      toast.error('Please enter a GitHub repository URL');
+      return;
+    }
+
+    // Check rate limit
+    const usageCheck = await checkAndIncrementUsage('scan');
+    if (!usageCheck.allowed) {
+      toast.error(usageCheck.error || 'Rate limit exceeded');
+      return;
+    }
+
+    setIsScanning(true);
+    setScanProgress(10);
+    setGithubResults(null);
+
+    try {
+      const progressInterval = setInterval(() => {
+        setScanProgress(prev => Math.min(prev + Math.random() * 8, 85));
+      }, 600);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/github-scanner`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ repoUrl: githubUrl, maxFiles: 30 }),
+      });
+
+      clearInterval(progressInterval);
+      setScanProgress(100);
+
+      const data = await response.json();
+
+      if (data.success) {
+        setGithubResults(data);
+        
+        // Add vulnerabilities to local state for demo users
+        if (data.isDemo && data.results) {
+          const allVulns = data.results.flatMap((r: any) => 
+            r.vulnerabilities.map((v: any) => ({
+              name: v.name,
+              description: v.description,
+              severity: v.severity,
+              category: v.category || 'Code Analysis',
+              location: v.location,
+              remediation: v.remediation,
+              cve_id: v.cve_id || null,
+              cvss_score: v.cvss_score || null,
+              status: 'detected' as const,
+              scan_id: null,
+              notes: null,
+              resolved_at: null
+            }))
+          );
+          if (allVulns.length > 0) {
+            addLocalVulnerabilities(allVulns);
+          }
+        }
+
+        if (data.totalVulnerabilities === 0) {
+          toast.success(`Scanned ${data.filesScanned} files - no vulnerabilities found`);
+        } else {
+          const demoNote = data.isDemo ? ' (Demo mode)' : '';
+          toast.warning(`Found ${data.totalVulnerabilities} issues in ${data.filesScanned} files${demoNote}`);
+        }
+        setGithubUrl('');
+      } else {
+        toast.error(data.error || 'GitHub scan failed');
+      }
+    } catch (error) {
+      console.error('GitHub scan error:', error);
+      toast.error('Failed to scan repository');
+    } finally {
+      setTimeout(() => {
+        setIsScanning(false);
+        setScanProgress(0);
+      }, 500);
+    }
+  };
+
   const runScan = async () => {
+    if (scanType === 'github') {
+      return runGitHubScan();
+    }
+
     if (!input.trim()) {
       toast.error('Please provide input to scan');
+      return;
+    }
+
+    // Check rate limit
+    const usageCheck = await checkAndIncrementUsage('scan');
+    if (!usageCheck.allowed) {
+      toast.error(usageCheck.error || 'Rate limit exceeded');
       return;
     }
 
@@ -414,13 +518,17 @@ const ThreatDashboard = () => {
       <section id="dashboard" className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-foreground mb-1">
-            Security Dashboard
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Real-time threat detection and vulnerability tracking
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-foreground mb-1">
+              Security Dashboard
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Real-time threat detection and vulnerability tracking
+            </p>
+          </div>
+          <UsageCounter variant="full" className="hidden lg:block w-64" />
+          <UsageCounter variant="compact" className="lg:hidden" />
         </div>
 
         {/* Stats grid */}
@@ -693,23 +801,80 @@ const ThreatDashboard = () => {
               </div>
             )}
 
-            {/* Input */}
-            <textarea
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                if (uploadedFileName) setUploadedFileName(null);
-              }}
-              placeholder={currentScanType?.placeholder}
-              className="w-full h-28 p-3 rounded-lg bg-muted border-0 text-foreground text-xs font-mono resize-none mb-3 focus:outline-none focus:ring-1 focus:ring-primary"
-              disabled={isScanning}
-            />
+            {/* GitHub URL Input */}
+            {scanType === 'github' ? (
+              <div className="space-y-3 mb-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Github className="w-3.5 h-3.5" />
+                  <span>Paste a public GitHub repository URL</span>
+                </div>
+                <Input
+                  value={githubUrl}
+                  onChange={(e) => setGithubUrl(e.target.value)}
+                  placeholder="https://github.com/owner/repo"
+                  className="text-xs font-mono"
+                  disabled={isScanning}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Scans up to 30 code files for vulnerabilities. Works with public repos.
+                </p>
+                {githubResults && (
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-foreground">{githubResults.repository}</span>
+                      <span className="text-[10px] text-muted-foreground">{githubResults.filesScanned} files</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-[10px]">
+                      {githubResults.summary?.critical > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
+                          {githubResults.summary.critical} critical
+                        </span>
+                      )}
+                      {githubResults.summary?.high > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500">
+                          {githubResults.summary.high} high
+                        </span>
+                      )}
+                      {githubResults.summary?.medium > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">
+                          {githubResults.summary.medium} medium
+                        </span>
+                      )}
+                      {githubResults.summary?.low > 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                          {githubResults.summary.low} low
+                        </span>
+                      )}
+                      {githubResults.totalVulnerabilities === 0 && (
+                        <span className="px-1.5 py-0.5 rounded bg-success/10 text-success">
+                          No issues found
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Regular Input */
+              <textarea
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  if (uploadedFileName) setUploadedFileName(null);
+                }}
+                placeholder={currentScanType?.placeholder}
+                className="w-full h-28 p-3 rounded-lg bg-muted border-0 text-foreground text-xs font-mono resize-none mb-3 focus:outline-none focus:ring-1 focus:ring-primary"
+                disabled={isScanning}
+              />
+            )}
 
             {/* Progress */}
             {isScanning && (
               <div className="mb-3">
                 <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="text-muted-foreground">Analyzing...</span>
+                  <span className="text-muted-foreground">
+                    {scanType === 'github' ? 'Scanning repository...' : 'Analyzing...'}
+                  </span>
                   <span className="font-medium text-foreground">{Math.round(scanProgress)}%</span>
                 </div>
                 <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -721,21 +886,36 @@ const ThreatDashboard = () => {
               </div>
             )}
 
+            {/* Rate limit warning */}
+            {remainingScanRequests <= 5 && remainingScanRequests > 0 && (
+              <div className="mb-3 p-2 rounded bg-warning/10 border border-warning/20">
+                <p className="text-[10px] text-warning flex items-center gap-1.5">
+                  <AlertCircle className="w-3 h-3" />
+                  {remainingScanRequests} scan{remainingScanRequests !== 1 ? 's' : ''} remaining today
+                </p>
+              </div>
+            )}
+
             <Button
               onClick={runScan}
-              disabled={isScanning || !input.trim()}
+              disabled={isScanning || (scanType === 'github' ? !githubUrl.trim() : !input.trim()) || remainingScanRequests === 0}
               size="sm"
               className="w-full"
             >
               {isScanning ? (
                 <>
                   <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                  Scanning...
+                  {scanType === 'github' ? 'Scanning Repo...' : 'Scanning...'}
+                </>
+              ) : remainingScanRequests === 0 ? (
+                <>
+                  <AlertTriangle className="w-3 h-3 mr-1.5" />
+                  Limit Reached
                 </>
               ) : (
                 <>
-                  <Search className="w-3 h-3 mr-1.5" />
-                  Run Scan
+                  {scanType === 'github' ? <Github className="w-3 h-3 mr-1.5" /> : <Search className="w-3 h-3 mr-1.5" />}
+                  {scanType === 'github' ? 'Scan Repository' : 'Run Scan'}
                 </>
               )}
             </Button>

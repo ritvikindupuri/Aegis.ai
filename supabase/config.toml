@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.threat-intelligence]
 verify_jwt = false
+
+[functions.github-scanner]
+verify_jwt = false

@@ -134,6 +134,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_usage: {
+        Row: {
+          agent_requests: number
+          created_at: string
+          id: string
+          last_request_at: string
+          request_date: string
+          scan_requests: number
+          user_id: string
+        }
+        Insert: {
+          agent_requests?: number
+          created_at?: string
+          id?: string
+          last_request_at?: string
+          request_date?: string
+          scan_requests?: number
+          user_id: string
+        }
+        Update: {
+          agent_requests?: number
+          created_at?: string
+          id?: string
+          last_request_at?: string
+          request_date?: string
+          scan_requests?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       vulnerabilities: {
         Row: {
           category: string
@@ -201,6 +231,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_and_increment_usage: {
+        Args: {
+          p_hourly_limit?: number
+          p_request_type: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      get_user_usage_stats: { Args: { p_user_id: string }; Returns: Json }
       recalculate_security_score: { Args: never; Returns: undefined }
     }
     Enums: {
