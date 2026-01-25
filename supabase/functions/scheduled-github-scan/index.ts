@@ -6,14 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface ScheduledRepo {
-  id: string;
-  user_id: string;
-  repo_url: string;
-  email: string;
-  last_scanned_at: string | null;
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -26,63 +18,34 @@ serve(async (req) => {
   try {
     console.log("Starting scheduled GitHub scan job...");
 
-    // Get all notification preferences that have email configured
-    const { data: preferences, error: prefError } = await supabase
-      .from('notification_preferences')
-      .select('user_id, email, notify_critical, notify_high')
-      .or('notify_critical.eq.true,notify_high.eq.true');
+    // Get all active scheduled scans
+    const { data: scheduledScans, error: scanError } = await supabase
+      .from('scheduled_scans')
+      .select('*')
+      .eq('is_active', true);
 
-    if (prefError) {
-      console.error("Error fetching notification preferences:", prefError);
-      throw prefError;
+    if (scanError) {
+      console.error("Error fetching scheduled scans:", scanError);
+      throw scanError;
     }
 
-    if (!preferences || preferences.length === 0) {
-      console.log("No users with notification preferences configured");
+    if (!scheduledScans || scheduledScans.length === 0) {
+      console.log("No active scheduled scans configured");
       return new Response(
         JSON.stringify({ success: true, message: "No scheduled scans to run", scansRun: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Found ${preferences.length} users with notification preferences`);
+    console.log(`Found ${scheduledScans.length} active scheduled scans`);
 
-    // Get the most recent GitHub scan for each user
     const scanResults = [];
 
-    for (const pref of preferences) {
-      // Get the user's most recent GitHub scan
-      const { data: recentScans, error: scanError } = await supabase
-        .from('security_scans')
-        .select('target, metadata')
-        .eq('user_id', pref.user_id)
-        .eq('scan_type', 'code')
-        .like('target', 'github:%')
-        .order('created_at', { ascending: false })
-        .limit(1);
+    for (const scheduledScan of scheduledScans) {
+      console.log(`Running scheduled scan for ${scheduledScan.repo_name} (user: ${scheduledScan.user_id})`);
 
-      if (scanError) {
-        console.error(`Error fetching scans for user ${pref.user_id}:`, scanError);
-        continue;
-      }
-
-      if (!recentScans || recentScans.length === 0) {
-        console.log(`No GitHub scans found for user ${pref.user_id}`);
-        continue;
-      }
-
-      const lastScan = recentScans[0];
-      const repoUrl = (lastScan.metadata as any)?.repository;
-
-      if (!repoUrl) {
-        console.log(`No repository URL found in scan metadata for user ${pref.user_id}`);
-        continue;
-      }
-
-      console.log(`Running scheduled scan for ${repoUrl} (user: ${pref.user_id})`);
-
-      // Call the GitHub scanner
       try {
+        // Call the GitHub scanner
         const scanResponse = await fetch(`${supabaseUrl}/functions/v1/github-scanner`, {
           method: 'POST',
           headers: {
@@ -90,71 +53,110 @@ serve(async (req) => {
             'Authorization': `Bearer ${serviceKey}`,
           },
           body: JSON.stringify({ 
-            repoUrl, 
+            repoUrl: scheduledScan.repo_url, 
             maxFiles: 50,
-            userId: pref.user_id // Pass user ID for attribution
           }),
         });
 
         const scanData = await scanResponse.json();
 
         if (scanData.success) {
-          console.log(`Scan completed for ${repoUrl}: ${scanData.totalVulnerabilities} vulnerabilities found`);
+          console.log(`Scan completed for ${scheduledScan.repo_name}: ${scanData.totalVulnerabilities} vulnerabilities found`);
 
-          // Check if we need to send an alert
-          const hasCritical = scanData.summary?.critical > 0;
-          const hasHigh = scanData.summary?.high > 0;
-
-          if ((pref.notify_critical && hasCritical) || (pref.notify_high && hasHigh)) {
-            // Send alert email
-            const alertResponse = await fetch(`${supabaseUrl}/functions/v1/send-vulnerability-alert`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${serviceKey}`,
+          // Update the scheduled scan with results
+          await supabase
+            .from('scheduled_scans')
+            .update({
+              last_scan_at: new Date().toISOString(),
+              last_scan_result: {
+                totalVulnerabilities: scanData.totalVulnerabilities,
+                summary: scanData.summary,
+                filesScanned: scanData.filesScanned,
               },
-              body: JSON.stringify({
-                email: pref.email,
-                repository: scanData.repository,
-                vulnerabilities: scanData.results?.flatMap((r: any) => r.vulnerabilities) || [],
-                scanSummary: {
-                  critical: scanData.summary?.critical || 0,
-                  high: scanData.summary?.high || 0,
-                  medium: scanData.summary?.medium || 0,
-                  low: scanData.summary?.low || 0,
-                  filesScanned: scanData.filesScanned || 0,
-                },
-                isScheduledScan: true,
-              }),
-            });
+            })
+            .eq('id', scheduledScan.id);
 
-            const alertData = await alertResponse.json();
-            console.log(`Alert sent to ${pref.email}: ${alertData.success ? 'success' : 'failed'}`);
+          // Also insert vulnerabilities for the user
+          if (scanData.results && scanData.results.length > 0) {
+            // Create a scan record
+            const { data: newScanRecord } = await supabase
+              .from('security_scans')
+              .insert({
+                scan_type: 'code',
+                target: `github:${scheduledScan.repo_name}`,
+                status: 'completed',
+                user_id: scheduledScan.user_id,
+                metadata: {
+                  repository: scheduledScan.repo_url,
+                  filesScanned: scanData.filesScanned,
+                  vulnerabilitiesFound: scanData.totalVulnerabilities,
+                  isScheduledScan: true,
+                }
+              })
+              .select()
+              .single();
+
+            // Insert vulnerabilities
+            if (newScanRecord) {
+              const allVulns = scanData.results.flatMap((r: any) => 
+                r.vulnerabilities.map((v: any) => ({
+                  name: v.name,
+                  description: v.description,
+                  severity: v.severity,
+                  category: v.category || 'Code Analysis',
+                  location: v.location,
+                  remediation: v.remediation,
+                  cve_id: v.cve_id || null,
+                  cvss_score: v.cvss_score || null,
+                  status: 'detected',
+                  scan_id: newScanRecord.id,
+                  user_id: scheduledScan.user_id,
+                }))
+              );
+
+              if (allVulns.length > 0) {
+                await supabase.from('vulnerabilities').insert(allVulns);
+              }
+            }
           }
 
           scanResults.push({
-            userId: pref.user_id,
-            repository: repoUrl,
+            id: scheduledScan.id,
+            repoName: scheduledScan.repo_name,
             vulnerabilities: scanData.totalVulnerabilities,
-            alertSent: (pref.notify_critical && hasCritical) || (pref.notify_high && hasHigh),
+            success: true,
           });
         } else {
-          console.error(`Scan failed for ${repoUrl}:`, scanData.error);
+          console.error(`Scan failed for ${scheduledScan.repo_name}:`, scanData.error);
+          scanResults.push({
+            id: scheduledScan.id,
+            repoName: scheduledScan.repo_name,
+            error: scanData.error,
+            success: false,
+          });
         }
       } catch (scanErr) {
-        console.error(`Error scanning ${repoUrl}:`, scanErr);
+        console.error(`Error scanning ${scheduledScan.repo_name}:`, scanErr);
+        scanResults.push({
+          id: scheduledScan.id,
+          repoName: scheduledScan.repo_name,
+          error: scanErr instanceof Error ? scanErr.message : 'Unknown error',
+          success: false,
+        });
       }
 
       // Small delay between scans to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
-    console.log(`Scheduled scan job completed. ${scanResults.length} scans run.`);
+    const successCount = scanResults.filter(r => r.success).length;
+    console.log(`Scheduled scan job completed. ${successCount}/${scanResults.length} scans successful.`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         scansRun: scanResults.length,
+        successCount,
         results: scanResults,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -106,7 +106,7 @@ const Hero = () => {
 
         {/* Subheading */}
         <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed animate-fade-in" style={{ animationDelay: '2s', animationFillMode: 'both' }}>
-          AI-powered vulnerability detection, threat analysis, and automated remediation. 
+          AI-powered vulnerability detection with GitHub repository scanning, threat analysis, and automated remediation. 
           Built for developers shipping fast.
         </p>
 

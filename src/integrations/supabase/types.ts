@@ -110,6 +110,42 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_scans: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          last_scan_at: string | null
+          last_scan_result: Json | null
+          repo_name: string
+          repo_url: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_scan_at?: string | null
+          last_scan_result?: Json | null
+          repo_name: string
+          repo_url: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_scan_at?: string | null
+          last_scan_result?: Json | null
+          repo_name?: string
+          repo_url?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       security_scans: {
         Row: {
           completed_at: string | null
