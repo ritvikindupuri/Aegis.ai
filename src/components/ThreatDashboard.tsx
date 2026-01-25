@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode, Github } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode, Github, Mail, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { useUserUsage } from '@/hooks/useUserUsage';
@@ -44,6 +44,9 @@ const ThreatDashboard = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [input, setInput] = useState('');
   const [githubUrl, setGithubUrl] = useState('');
+  const [notificationEmail, setNotificationEmail] = useState('');
+  const [enableNotifications, setEnableNotifications] = useState(false);
+  const [isSendingAlert, setIsSendingAlert] = useState(false);
   const [scanType, setScanType] = useState<ScanType>('code');
   const [lastResults, setLastResults] = useState<any[]>([]);
   const [githubResults, setGithubResults] = useState<any>(null);
@@ -157,6 +160,11 @@ const ThreatDashboard = () => {
           }
         }
 
+        // Send email notification if enabled and critical/high vulnerabilities found
+        if (enableNotifications && notificationEmail && (data.summary?.critical > 0 || data.summary?.high > 0)) {
+          sendVulnerabilityAlert(data);
+        }
+
         if (data.totalVulnerabilities === 0) {
           toast.success(`Scanned ${data.filesScanned} files - no vulnerabilities found`);
         } else {
@@ -177,6 +185,62 @@ const ThreatDashboard = () => {
       }, 500);
     }
   };
+
+  const sendVulnerabilityAlert = async (scanData: any) => {
+    if (!notificationEmail || !scanData.repository) return;
+    
+    setIsSendingAlert(true);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Please log in to enable email notifications');
+        return;
+      }
+
+      const allVulns = scanData.results?.flatMap((r: any) => r.vulnerabilities) || [];
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-vulnerability-alert`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          email: notificationEmail,
+          repository: scanData.repository,
+          vulnerabilities: allVulns,
+          scanSummary: {
+            critical: scanData.summary?.critical || 0,
+            high: scanData.summary?.high || 0,
+            medium: scanData.summary?.medium || 0,
+            low: scanData.summary?.low || 0,
+            filesScanned: scanData.filesScanned || 0,
+          },
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`Security alert sent to ${notificationEmail}`, {
+          description: 'Check your inbox for the vulnerability report',
+          icon: <Mail className="w-4 h-4" />,
+        });
+      } else {
+        console.error('Email alert failed:', result.error);
+        toast.error('Failed to send email alert', {
+          description: result.error || 'Please check your email configuration',
+        });
+      }
+    } catch (error) {
+      console.error('Error sending vulnerability alert:', error);
+      toast.error('Failed to send email notification');
+    } finally {
+      setIsSendingAlert(false);
+    }
+  };
+
 
   const runScan = async () => {
     if (scanType === 'github') {
@@ -816,8 +880,47 @@ const ThreatDashboard = () => {
                   disabled={isScanning}
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Scans up to 30 code files for vulnerabilities. Works with public repos.
+                  Scans up to 100 code files for vulnerabilities. Works with public repos.
                 </p>
+                
+                {/* Email Notification Settings */}
+                <div className="p-3 rounded-lg bg-muted/30 border border-border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium">Email Alerts</span>
+                    </div>
+                    <button
+                      onClick={() => setEnableNotifications(!enableNotifications)}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                        enableNotifications ? "bg-primary" : "bg-muted-foreground/30"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                          enableNotifications ? "translate-x-4" : "translate-x-0.5"
+                        )}
+                      />
+                    </button>
+                  </div>
+                  {enableNotifications && (
+                    <div className="space-y-1.5">
+                      <Input
+                        type="email"
+                        value={notificationEmail}
+                        onChange={(e) => setNotificationEmail(e.target.value)}
+                        placeholder="your@email.com"
+                        className="text-xs h-8"
+                        disabled={isScanning}
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        Get notified when critical or high severity vulnerabilities are found.
+                      </p>
+                    </div>
+                  )}
+                </div>
                 {githubResults && (
                   <div className="p-3 rounded-lg bg-muted/50 border border-border">
                     <div className="flex items-center justify-between mb-2">
