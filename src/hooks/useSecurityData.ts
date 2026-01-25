@@ -328,12 +328,12 @@ export function useSecurityData() {
   }, [isAuthenticated, calculateScoreFromVulnerabilities]);
 
   const resetDashboard = useCallback(async () => {
-    if (isAuthenticated) {
-      // Delete all vulnerabilities for this user
+    if (isAuthenticated && user?.id) {
+      // Delete all vulnerabilities for this user (RLS ensures only their own)
       const { error: vulnError } = await supabase
         .from('vulnerabilities')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
+        .eq('user_id', user.id);
 
       if (vulnError) {
         console.error('Error deleting vulnerabilities:', vulnError);
@@ -344,25 +344,22 @@ export function useSecurityData() {
       const { error: scanError } = await supabase
         .from('security_scans')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
+        .eq('user_id', user.id);
 
       if (scanError) {
         console.error('Error deleting scans:', scanError);
         return false;
       }
 
-      // Reset security stats
-      const statsToReset = ['threats_blocked', 'vulnerabilities_fixed', 'avg_response_time_ms', 'security_score', 'total_scans'];
-      for (const metricName of statsToReset) {
-        await supabase
-          .from('security_stats')
-          .upsert({
-            metric_name: metricName,
-            metric_value: metricName === 'security_score' ? 100 : 0,
-            previous_value: 0,
-            updated_at: new Date().toISOString(),
-            user_id: user?.id
-          }, { onConflict: 'metric_name' });
+      // Reset security stats for this user - delete existing and let them be recreated
+      const { error: statsError } = await supabase
+        .from('security_stats')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (statsError) {
+        console.error('Error deleting stats:', statsError);
+        // Non-fatal, continue
       }
     }
 

@@ -726,7 +726,8 @@ const ThreatDashboard = () => {
         </div>
 
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        {/* Top section: Scanner and Scheduled Scans side by side */}
+        <div className={cn("grid gap-6", user ? "lg:grid-cols-2" : "lg:grid-cols-1")}>
           {/* Scanner panel */}
           <div className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center justify-between mb-4">
@@ -988,10 +989,11 @@ const ThreatDashboard = () => {
 
           {/* Scheduled Scans - only for authenticated users */}
           {user && <ScheduledScans />}
+        </div>
 
-          {/* Vulnerability feed */}
-          <div className={cn("rounded-lg border border-border bg-card p-5", user ? "lg:col-span-1" : "lg:col-span-2")}>
-            <div className="flex items-center justify-between mb-4">
+        {/* Vulnerability Feed - Full width horizontal section below */}
+        <div className="rounded-lg border border-border bg-card p-5 mt-6">
+          <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-foreground text-sm">Vulnerability Feed</h3>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">
@@ -1034,7 +1036,8 @@ const ThreatDashboard = () => {
               </div>
             </div>
 
-            <div className="space-y-2 max-h-[380px] overflow-y-auto">
+            {/* Horizontal scrolling container */}
+            <div className="overflow-x-auto pb-2">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -1046,23 +1049,24 @@ const ThreatDashboard = () => {
                   <p className="text-xs">Run a scan to analyze your code</p>
                 </div>
               ) : (
-                vulnerabilities.map((vuln) => {
-                  const StatusIcon = statusIcons[vuln.status as keyof typeof statusIcons] || AlertTriangle;
-                  const severity = severityConfig[vuln.severity as keyof typeof severityConfig] || severityConfig.info;
-                  const statusLabels: Record<string, string> = { 
-                    resolved: 'Resolved', 
-                    analyzing: 'Analyzing', 
-                    false_positive: 'False Positive',
-                    detected: 'Detected'
-                  };
-                  const isExpanded = expandedVulns.has(vuln.id);
-                  const hasDetails = vuln.description || vuln.remediation || vuln.location;
-                  
-                  return (
-                    <div
-                      key={vuln.id}
-                      className="rounded-xl border border-border bg-background overflow-hidden shadow-sm"
-                    >
+                <div className="flex gap-4 min-w-max">
+                  {vulnerabilities.map((vuln) => {
+                    const StatusIcon = statusIcons[vuln.status as keyof typeof statusIcons] || AlertTriangle;
+                    const severity = severityConfig[vuln.severity as keyof typeof severityConfig] || severityConfig.info;
+                    const statusLabels: Record<string, string> = { 
+                      resolved: 'Resolved', 
+                      analyzing: 'Analyzing', 
+                      false_positive: 'False Positive',
+                      detected: 'Detected'
+                    };
+                    const isExpanded = expandedVulns.has(vuln.id);
+                    const hasDetails = vuln.description || vuln.remediation || vuln.location;
+                    
+                    return (
+                      <div
+                        key={vuln.id}
+                        className="rounded-xl border border-border bg-background overflow-hidden shadow-sm w-80 flex-shrink-0"
+                      >
                       {/* Main row */}
                       <div 
                         className={cn(
@@ -1290,12 +1294,12 @@ const ThreatDashboard = () => {
                       )}
                     </div>
                   );
-                })
+                })}
+                </div>
               )}
             </div>
           </div>
         </div>
-      </div>
       </section>
     </>
   );
