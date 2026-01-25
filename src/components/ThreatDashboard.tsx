@@ -794,21 +794,21 @@ const ThreatDashboard = () => {
             </div>
 
             {/* Scan type selector */}
-            <div className="flex gap-1 mb-4">
+            <div className="grid grid-cols-4 gap-1.5 mb-4">
               {scanTypes.map((type) => (
                 <button
                   key={type.id}
                   onClick={() => setScanType(type.id)}
                   disabled={isScanning}
                   className={cn(
-                    'flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium transition-colors',
+                    'flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-lg text-[10px] font-medium transition-colors',
                     scanType === type.id
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
                   )}
                 >
-                  <type.icon className="w-3 h-3" />
-                  {type.label}
+                  <type.icon className="w-4 h-4" />
+                  <span>{type.label}</span>
                 </button>
               ))}
             </div>
@@ -880,7 +880,7 @@ const ThreatDashboard = () => {
                   disabled={isScanning}
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Scans up to 100 code files for vulnerabilities. Works with public repos.
+                  Scans up to 100 code files. Supports public &amp; private repositories.
                 </p>
                 
                 {/* Email Notification Settings */}
