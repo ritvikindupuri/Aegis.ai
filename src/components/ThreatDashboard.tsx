@@ -1061,53 +1061,60 @@ const ThreatDashboard = () => {
                   return (
                     <div
                       key={vuln.id}
-                      className="rounded-lg border border-border bg-background overflow-hidden"
+                      className="rounded-xl border border-border bg-background overflow-hidden shadow-sm"
                     >
                       {/* Main row */}
                       <div 
                         className={cn(
-                          "p-3 flex items-center gap-3 transition-colors",
+                          "p-4 flex items-start gap-4 transition-colors",
                           hasDetails && "cursor-pointer hover:bg-muted/30"
                         )}
                         onClick={() => hasDetails && toggleVulnExpanded(vuln.id)}
                       >
                         {/* Expand/collapse indicator */}
                         {hasDetails ? (
-                          <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-1">
                             {isExpanded ? (
-                              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                              <ChevronDown className="w-4 h-4 text-muted-foreground" />
                             ) : (
-                              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
                             )}
                           </div>
                         ) : (
-                          <div className="w-4" />
+                          <div className="w-5" />
                         )}
                         
                         <div className={cn(
-                          'w-8 h-8 rounded flex items-center justify-center flex-shrink-0',
+                          'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
                           severity.bg
                         )}>
-                          <AlertTriangle className={cn("w-4 h-4", severity.text)} />
+                          <AlertTriangle className={cn("w-5 h-5", severity.text)} />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground truncate">{vuln.name}</span>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          {/* Title row */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-foreground">{vuln.name}</span>
                             {/* NVD Enriched Badge - only for real CVE IDs */}
                             {vuln.cve_id && vuln.cve_id !== 'N/A' && vuln.cve_id.startsWith('CVE-') && (
-                              <span className="flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/20">
-                                <Shield className="w-2.5 h-2.5" />
+                              <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full bg-success/10 text-success border border-success/20">
+                                <Shield className="w-3 h-3" />
                                 NVD
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          
+                          {/* Severity badge row */}
+                          <div className="flex items-center gap-2">
                             <span className={cn(
-                              'text-[10px] font-medium px-1.5 py-0.5 rounded uppercase',
+                              'text-[11px] font-semibold px-2 py-1 rounded uppercase tracking-wide',
                               severity.bg, severity.text
                             )}>
                               {vuln.severity}
                             </span>
+                          </div>
+                          
+                          {/* OWASP/Category row */}
+                          <div className="flex items-center gap-2 flex-wrap">
                             {/* OWASP LLM Badge for LLM01-LLM10 categories */}
                             {vuln.category.match(/^LLM\d{2}/) ? (
                               <a 
@@ -1115,11 +1122,11 @@ const ThreatDashboard = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-colors flex items-center gap-1 border border-purple-500/20"
+                                className="text-[11px] font-medium px-2 py-1 rounded-md bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-colors flex items-center gap-1.5 border border-purple-500/20"
                               >
-                                <Shield className="w-2.5 h-2.5" />
+                                <Shield className="w-3 h-3" />
                                 OWASP LLM 2025
-                                <ExternalLink className="w-2.5 h-2.5" />
+                                <ExternalLink className="w-3 h-3" />
                               </a>
                             ) : vuln.category.match(/^A\d{2}/) ? (
                               <a 
@@ -1127,14 +1134,18 @@ const ThreatDashboard = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors flex items-center gap-1 border border-blue-500/20"
+                                className="text-[11px] font-medium px-2 py-1 rounded-md bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors flex items-center gap-1.5 border border-blue-500/20"
                               >
-                                <Shield className="w-2.5 h-2.5" />
+                                <Shield className="w-3 h-3" />
                                 OWASP Top 10
-                                <ExternalLink className="w-2.5 h-2.5" />
+                                <ExternalLink className="w-3 h-3" />
                               </a>
                             ) : null}
-                            <span className="text-[10px] text-muted-foreground">{vuln.category}</span>
+                            <span className="text-[11px] text-muted-foreground font-medium">{vuln.category}</span>
+                          </div>
+                          
+                          {/* CVE/CWE row */}
+                          <div className="flex items-center gap-2 flex-wrap">
                             {vuln.cve_id && vuln.cve_id !== 'N/A' && (
                               vuln.cve_id.startsWith('CVE-') ? (
                                 <a 
@@ -1142,10 +1153,10 @@ const ThreatDashboard = () => {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={(e) => e.stopPropagation()}
-                                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
+                                  className="text-[11px] font-mono px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5"
                                 >
                                   {vuln.cve_id}
-                                  <ExternalLink className="w-2.5 h-2.5" />
+                                  <ExternalLink className="w-3 h-3" />
                                 </a>
                               ) : vuln.cve_id.startsWith('CWE-') ? (
                                 <a 
@@ -1153,20 +1164,20 @@ const ThreatDashboard = () => {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={(e) => e.stopPropagation()}
-                                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+                                  className="text-[11px] font-mono px-2 py-1 rounded-md bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-colors flex items-center gap-1.5"
                                 >
                                   {vuln.cve_id}
-                                  <ExternalLink className="w-2.5 h-2.5" />
+                                  <ExternalLink className="w-3 h-3" />
                                 </a>
                               ) : (
-                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                <span className="text-[11px] font-mono px-2 py-1 rounded-md bg-muted text-muted-foreground">
                                   {vuln.cve_id}
                                 </span>
                               )
                             )}
                             {vuln.cvss_score !== null && (
                               <span className={cn(
-                                'text-[10px] font-medium px-1.5 py-0.5 rounded',
+                                'text-[11px] font-semibold px-2 py-1 rounded-md',
                                 vuln.cvss_score >= 9 ? 'bg-destructive/10 text-destructive' :
                                 vuln.cvss_score >= 7 ? 'bg-warning/10 text-warning' :
                                 vuln.cvss_score >= 4 ? 'bg-warning/10 text-warning/80' :
@@ -1175,7 +1186,11 @@ const ThreatDashboard = () => {
                                 CVSS {vuln.cvss_score}
                               </span>
                             )}
-                            <span className="text-[10px] text-muted-foreground">{formatTimestamp(vuln.created_at)}</span>
+                          </div>
+                          
+                          {/* Date row */}
+                          <div className="pt-1">
+                            <span className="text-[11px] text-muted-foreground">{formatTimestamp(vuln.created_at)}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
