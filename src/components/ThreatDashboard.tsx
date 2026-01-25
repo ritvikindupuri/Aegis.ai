@@ -892,19 +892,23 @@ const ThreatDashboard = () => {
                       <div className="relative group">
                         <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
                         <div className="absolute left-0 bottom-full mb-2 w-72 p-3 bg-popover border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                          <p className="text-[11px] font-medium text-foreground mb-2">📧 Email Setup Required</p>
+                          <p className="text-[11px] font-medium text-foreground mb-2">📧 Email Delivery Status</p>
                           <p className="text-[10px] text-muted-foreground mb-2">
-                            For emails to be delivered, the administrator must configure a verified sending domain:
+                            Email alerts require the platform administrator to complete setup:
                           </p>
-                          <ol className="text-[10px] text-muted-foreground space-y-1.5 list-decimal list-inside">
-                            <li>Go to <span className="font-medium text-foreground">resend.com/domains</span></li>
-                            <li>Add and verify your email domain (e.g., yourcompany.com)</li>
-                            <li>Add the DNS records Resend provides (SPF, DKIM, DMARC)</li>
-                            <li>Wait for domain verification (usually a few minutes)</li>
-                            <li>Update the edge function to use your verified domain</li>
-                          </ol>
-                          <p className="text-[10px] text-amber-500 mt-2 pt-2 border-t border-border">
-                            ⚠️ Without domain verification, emails will only work with Resend's test domain (limited to your own email).
+                          <div className="text-[10px] text-muted-foreground space-y-1.5 mb-2">
+                            <p><span className="font-medium text-foreground">1.</span> Create account at resend.com</p>
+                            <p><span className="font-medium text-foreground">2.</span> Verify a sending domain (resend.com/domains)</p>
+                            <p><span className="font-medium text-foreground">3.</span> Add DNS records (SPF, DKIM) to your domain</p>
+                            <p><span className="font-medium text-foreground">4.</span> Contact admin to update the email sender address</p>
+                          </div>
+                          <div className="text-[10px] bg-muted/50 p-2 rounded mt-2">
+                            <p className="text-muted-foreground">
+                              <span className="font-medium text-foreground">Current status:</span> Using Resend test domain. Emails only deliver to the Resend account owner's email.
+                            </p>
+                          </div>
+                          <p className="text-[10px] text-primary mt-2">
+                            Contact your administrator to enable full email delivery.
                           </p>
                         </div>
                       </div>
