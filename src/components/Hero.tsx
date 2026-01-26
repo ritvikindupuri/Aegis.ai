@@ -2,6 +2,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Shield, Github, Zap } from 'lucide-react';
+import AnimatedBackground from './AnimatedBackground';
 
 const Hero = () => {
   const { user } = useAuth();
@@ -86,30 +87,19 @@ const Hero = () => {
 
   return (
     <section className="pt-24 pb-32 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Decorative floating elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Floating orbs */}
-        <div className="absolute top-20 left-[10%] w-64 h-64 bg-primary/5 rounded-full blur-3xl animate-float" />
-        <div className="absolute top-40 right-[15%] w-48 h-48 bg-primary/8 rounded-full blur-3xl animate-float" style={{ animationDelay: '-2s' }} />
-        <div className="absolute bottom-20 left-[20%] w-56 h-56 bg-primary/4 rounded-full blur-3xl animate-float" style={{ animationDelay: '-4s' }} />
-        
-        {/* Subtle gradient lines */}
-        <div className="absolute top-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-        <div className="absolute top-3/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/10 to-transparent" />
-      </div>
+      <AnimatedBackground />
 
       <div className="max-w-5xl mx-auto text-center relative z-10">
         {/* Main heading with typing animation */}
-        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-foreground tracking-tight mb-8 leading-[1.05]">
-          <span className="inline-block min-h-[1.2em]">
+        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-foreground tracking-tight mb-8 leading-[1.1]">
+          <span className="inline-block">
             {displayText}
             <span 
               className={`inline-block w-[4px] h-[0.85em] bg-primary ml-1 align-middle rounded-sm transition-opacity duration-100 ${
                 showCursor ? 'opacity-100' : 'opacity-0'
               }`}
             />
-          </span>
-          <br />
+          </span>{' '}
           <span className="text-gradient opacity-0 animate-fade-in" style={{ animationDelay: '1.5s', animationFillMode: 'forwards' }}>
             for modern apps
           </span>
