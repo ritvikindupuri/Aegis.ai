@@ -1,4 +1,4 @@
-import { Code, Brain, Eye, Workflow, Scan, Lock, Github } from 'lucide-react';
+import { Code, Brain, Eye, Workflow, Scan, Lock, Github, ArrowRight } from 'lucide-react';
 import FeatureCard from './FeatureCard';
 
 const Features = () => {
@@ -41,28 +41,51 @@ const Features = () => {
   ];
 
   return (
-    <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
-      <div className="max-w-7xl mx-auto">
+    <section id="features" className="py-24 px-4 sm:px-6 lg:px-8 relative">
+      {/* Background decoration */}
+      <div className="absolute inset-0 bg-gradient-to-b from-muted/50 via-muted/30 to-transparent pointer-events-none" />
+      
+      <div className="max-w-7xl mx-auto relative z-10">
         {/* Section header */}
-        <div className="text-center mb-12">
-          <h2 className="text-2xl sm:text-3xl font-semibold text-foreground mb-3">
+        <div className="text-center mb-16">
+          <p className="text-primary font-semibold text-sm uppercase tracking-wider mb-3">Features</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
             Security for modern development
           </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
+          <p className="text-muted-foreground max-w-xl mx-auto text-lg">
             Comprehensive security coverage for AI-accelerated development workflows.
           </p>
         </div>
 
         {/* Feature grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {features.map((feature) => (
-            <FeatureCard
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {features.map((feature, index) => (
+            <div 
               key={feature.title}
-              icon={feature.icon}
-              title={feature.title}
-              description={feature.description}
-            />
+              className="opacity-0 animate-fade-in-up"
+              style={{ 
+                animationDelay: `${index * 100}ms`, 
+                animationFillMode: 'forwards' 
+              }}
+            >
+              <FeatureCard
+                icon={feature.icon}
+                title={feature.title}
+                description={feature.description}
+              />
+            </div>
           ))}
+        </div>
+
+        {/* Bottom CTA */}
+        <div className="mt-16 text-center">
+          <a 
+            href="#dashboard" 
+            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-semibold transition-colors group"
+          >
+            <span>See it in action</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </a>
         </div>
       </div>
     </section>

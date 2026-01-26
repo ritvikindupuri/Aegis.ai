@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode, Github, Lock } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode, Github, Lock, Filter, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { useUserUsage } from '@/hooks/useUserUsage';
@@ -14,6 +14,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -30,6 +32,8 @@ import ScheduledScans from './ScheduledScans';
 
 type ScanType = 'code' | 'dependency' | 'llm_protection' | 'github';
 type StatusAction = 'resolved' | 'analyzing' | 'false_positive' | null;
+type SeverityFilter = 'all' | 'critical' | 'high' | 'medium' | 'low';
+type StatusFilter = 'all' | 'detected' | 'analyzing' | 'resolved' | 'false_positive';
 
 interface StatusDialogState {
   isOpen: boolean;
@@ -62,6 +66,65 @@ const ThreatDashboard = () => {
   const [expandedVulns, setExpandedVulns] = useState<Set<string>>(new Set());
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Filter state
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  
+  // Keyboard navigation state
+  const [focusedVulnIndex, setFocusedVulnIndex] = useState<number>(-1);
+  const feedContainerRef = useRef<HTMLDivElement>(null);
+  const vulnCardsRef = useRef<(HTMLDivElement | null)[]>([]);
+  
+  // Filter vulnerabilities
+  const filteredVulnerabilities = useMemo(() => {
+    return vulnerabilities.filter(vuln => {
+      const matchesSeverity = severityFilter === 'all' || vuln.severity === severityFilter;
+      const matchesStatus = statusFilter === 'all' || vuln.status === statusFilter;
+      return matchesSeverity && matchesStatus;
+    });
+  }, [vulnerabilities, severityFilter, statusFilter]);
+  
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!feedContainerRef.current || filteredVulnerabilities.length === 0) return;
+    
+    // Only handle if feed is focused or a child is focused
+    if (!feedContainerRef.current.contains(document.activeElement) && document.activeElement !== feedContainerRef.current) return;
+    
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setFocusedVulnIndex(prev => {
+        const next = Math.min(prev + 1, filteredVulnerabilities.length - 1);
+        vulnCardsRef.current[next]?.focus();
+        vulnCardsRef.current[next]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        return next;
+      });
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setFocusedVulnIndex(prev => {
+        const next = Math.max(prev - 1, 0);
+        vulnCardsRef.current[next]?.focus();
+        vulnCardsRef.current[next]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        return next;
+      });
+    } else if (e.key === 'Enter' && focusedVulnIndex >= 0) {
+      const vuln = filteredVulnerabilities[focusedVulnIndex];
+      if (vuln) toggleVulnExpanded(vuln.id);
+    }
+  }, [filteredVulnerabilities, focusedVulnIndex]);
+  
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+  
+  // Reset focus when filters change
+  useEffect(() => {
+    setFocusedVulnIndex(-1);
+  }, [severityFilter, statusFilter]);
+
+  const hasActiveFilters = severityFilter !== 'all' || statusFilter !== 'all';
 
   // Filter scan types based on auth status - GitHub only for authenticated users
   const availableScanTypes = user ? [
@@ -993,12 +1056,75 @@ const ThreatDashboard = () => {
 
         {/* Vulnerability Feed - Full width horizontal section below */}
         <div className="rounded-lg border border-border bg-card p-5 mt-6">
-          <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-foreground text-sm">Vulnerability Feed</h3>
-              <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <h3 className="font-medium text-foreground text-sm">Vulnerability Feed</h3>
                 <span className="text-xs text-muted-foreground">
-                  {vulnerabilities.length} total
+                  {filteredVulnerabilities.length} of {vulnerabilities.length}
                 </span>
+                {/* Keyboard hint */}
+                <span className="hidden sm:flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-2 py-1 rounded">
+                  <ChevronLeft className="w-3 h-3" />
+                  <ChevronRight className="w-3 h-3" />
+                  Navigate
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Filter dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant={hasActiveFilters ? "default" : "outline"} 
+                      size="sm" 
+                      className={cn("h-7 px-2 text-xs", hasActiveFilters && "bg-primary")}
+                    >
+                      <Filter className="w-3 h-3 mr-1" />
+                      Filter
+                      {hasActiveFilters && (
+                        <span className="ml-1 w-4 h-4 rounded-full bg-primary-foreground text-primary text-[10px] flex items-center justify-center">
+                          {(severityFilter !== 'all' ? 1 : 0) + (statusFilter !== 'all' ? 1 : 0)}
+                        </span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-popover border border-border w-48">
+                    <DropdownMenuLabel className="text-xs">Severity</DropdownMenuLabel>
+                    {(['all', 'critical', 'high', 'medium', 'low'] as SeverityFilter[]).map((sev) => (
+                      <DropdownMenuItem 
+                        key={sev} 
+                        onClick={() => setSeverityFilter(sev)}
+                        className={cn("text-xs", severityFilter === sev && "bg-primary/10 text-primary")}
+                      >
+                        {sev === 'all' ? 'All Severities' : sev.charAt(0).toUpperCase() + sev.slice(1)}
+                        {severityFilter === sev && <CheckCircle className="w-3 h-3 ml-auto" />}
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs">Status</DropdownMenuLabel>
+                    {(['all', 'detected', 'analyzing', 'resolved', 'false_positive'] as StatusFilter[]).map((stat) => (
+                      <DropdownMenuItem 
+                        key={stat} 
+                        onClick={() => setStatusFilter(stat)}
+                        className={cn("text-xs", statusFilter === stat && "bg-primary/10 text-primary")}
+                      >
+                        {stat === 'all' ? 'All Statuses' : stat === 'false_positive' ? 'False Positive' : stat.charAt(0).toUpperCase() + stat.slice(1)}
+                        {statusFilter === stat && <CheckCircle className="w-3 h-3 ml-auto" />}
+                      </DropdownMenuItem>
+                    ))}
+                    {hasActiveFilters && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => { setSeverityFilter('all'); setStatusFilter('all'); }}
+                          className="text-xs text-muted-foreground"
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          Clear filters
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -1036,21 +1162,27 @@ const ThreatDashboard = () => {
               </div>
             </div>
 
-            {/* Horizontal scrolling container */}
-            <div className="overflow-x-auto pb-2">
+            {/* Horizontal scrolling container with keyboard navigation */}
+            <div 
+              ref={feedContainerRef}
+              className="overflow-x-auto pb-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
+              tabIndex={0}
+              role="list"
+              aria-label="Vulnerability list. Use left and right arrow keys to navigate."
+            >
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : vulnerabilities.length === 0 ? (
+              ) : filteredVulnerabilities.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm font-medium">No vulnerabilities</p>
-                  <p className="text-xs">Run a scan to analyze your code</p>
+                  <p className="text-sm font-medium">{hasActiveFilters ? 'No matches' : 'No vulnerabilities'}</p>
+                  <p className="text-xs">{hasActiveFilters ? 'Try adjusting your filters' : 'Run a scan to analyze your code'}</p>
                 </div>
               ) : (
                 <div className="flex gap-4 min-w-max">
-                  {vulnerabilities.map((vuln) => {
+                  {filteredVulnerabilities.map((vuln, index) => {
                     const StatusIcon = statusIcons[vuln.status as keyof typeof statusIcons] || AlertTriangle;
                     const severity = severityConfig[vuln.severity as keyof typeof severityConfig] || severityConfig.info;
                     const statusLabels: Record<string, string> = { 
@@ -1061,11 +1193,20 @@ const ThreatDashboard = () => {
                     };
                     const isExpanded = expandedVulns.has(vuln.id);
                     const hasDetails = vuln.description || vuln.remediation || vuln.location;
+                    const isFocused = focusedVulnIndex === index;
                     
                     return (
                       <div
                         key={vuln.id}
-                        className="rounded-xl border border-border bg-background overflow-hidden shadow-sm w-80 flex-shrink-0"
+                        ref={el => { vulnCardsRef.current[index] = el; }}
+                        className={cn(
+                          "rounded-xl border border-border bg-background overflow-hidden shadow-sm w-80 flex-shrink-0 transition-all",
+                          isFocused && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                        )}
+                        tabIndex={-1}
+                        role="listitem"
+                        aria-label={`${vuln.name}, ${vuln.severity} severity, ${vuln.status} status`}
+                        onFocus={() => setFocusedVulnIndex(index)}
                       >
                       {/* Main row */}
                       <div 
