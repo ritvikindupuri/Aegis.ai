@@ -99,6 +99,12 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-10px)" },
         },
+        "blob": {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
+          "25%": { transform: "translate(20px, -30px) scale(1.05)" },
+          "50%": { transform: "translate(-20px, 20px) scale(0.95)" },
+          "75%": { transform: "translate(30px, 10px) scale(1.02)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -107,6 +113,7 @@ export default {
         "fade-in-up": "fade-in-up 0.6s ease-out forwards",
         "pulse-slow": "pulse-slow 3s ease-in-out infinite",
         "float": "float 6s ease-in-out infinite",
+        "blob": "blob 12s ease-in-out infinite",
       },
     },
   },
