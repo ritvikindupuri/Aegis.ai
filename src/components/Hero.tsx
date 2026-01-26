@@ -1,7 +1,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
-import { Shield, Zap, Github } from 'lucide-react';
+import { Shield, Github, Zap } from 'lucide-react';
 
 const Hero = () => {
   const { user } = useAuth();
@@ -99,13 +99,6 @@ const Hero = () => {
       </div>
 
       <div className="max-w-5xl mx-auto text-center relative z-10">
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-8 animate-fade-in">
-          <Shield className="w-4 h-4" />
-          <span>AI-Powered Security Platform</span>
-          <Zap className="w-4 h-4" />
-        </div>
-
         {/* Main heading with typing animation */}
         <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-foreground tracking-tight mb-8 leading-[1.05]">
           <span className="inline-block min-h-[1.2em]">
