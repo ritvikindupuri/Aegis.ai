@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode, Github, Lock, Filter, ChevronLeft } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, ChevronDown, ChevronRight, Loader2, Search, Code, FileJson, MessageSquare, Zap, X, Download, Shield, ExternalLink, RotateCcw, Info, AlertCircle, Upload, FileCode, Github, Lock, Filter, ChevronLeft, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSecurityData } from '@/hooks/useSecurityData';
 import { useUserUsage } from '@/hooks/useUserUsage';
@@ -34,6 +34,7 @@ type ScanType = 'code' | 'dependency' | 'llm_protection' | 'github';
 type StatusAction = 'resolved' | 'analyzing' | 'false_positive' | null;
 type SeverityFilter = 'all' | 'critical' | 'high' | 'medium' | 'low';
 type StatusFilter = 'all' | 'detected' | 'analyzing' | 'resolved' | 'false_positive';
+type SortOption = 'date-desc' | 'date-asc' | 'severity-desc' | 'severity-asc' | 'status';
 
 interface StatusDialogState {
   isOpen: boolean;
@@ -67,23 +68,51 @@ const ThreatDashboard = () => {
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Filter state
+  // Filter and sort state
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sortOption, setSortOption] = useState<SortOption>('date-desc');
   
   // Keyboard navigation state
   const [focusedVulnIndex, setFocusedVulnIndex] = useState<number>(-1);
   const feedContainerRef = useRef<HTMLDivElement>(null);
   const vulnCardsRef = useRef<(HTMLDivElement | null)[]>([]);
   
-  // Filter vulnerabilities
+  // Severity order for sorting
+  const severityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+  const statusOrder = { detected: 1, analyzing: 2, resolved: 3, false_positive: 4 };
+  
+  // Filter and sort vulnerabilities
   const filteredVulnerabilities = useMemo(() => {
-    return vulnerabilities.filter(vuln => {
+    let filtered = vulnerabilities.filter(vuln => {
       const matchesSeverity = severityFilter === 'all' || vuln.severity === severityFilter;
       const matchesStatus = statusFilter === 'all' || vuln.status === statusFilter;
       return matchesSeverity && matchesStatus;
     });
-  }, [vulnerabilities, severityFilter, statusFilter]);
+    
+    // Sort based on selected option
+    filtered = [...filtered].sort((a, b) => {
+      switch (sortOption) {
+        case 'date-desc':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'date-asc':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'severity-desc':
+          return (severityOrder[b.severity as keyof typeof severityOrder] || 0) - 
+                 (severityOrder[a.severity as keyof typeof severityOrder] || 0);
+        case 'severity-asc':
+          return (severityOrder[a.severity as keyof typeof severityOrder] || 0) - 
+                 (severityOrder[b.severity as keyof typeof severityOrder] || 0);
+        case 'status':
+          return (statusOrder[a.status as keyof typeof statusOrder] || 0) - 
+                 (statusOrder[b.status as keyof typeof statusOrder] || 0);
+        default:
+          return 0;
+      }
+    });
+    
+    return filtered;
+  }, [vulnerabilities, severityFilter, statusFilter, sortOption]);
   
   // Keyboard navigation handler
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -119,12 +148,23 @@ const ThreatDashboard = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
   
-  // Reset focus when filters change
+  // Reset focus when filters/sort change
   useEffect(() => {
     setFocusedVulnIndex(-1);
-  }, [severityFilter, statusFilter]);
+  }, [severityFilter, statusFilter, sortOption]);
 
   const hasActiveFilters = severityFilter !== 'all' || statusFilter !== 'all';
+  
+  const getSortLabel = (option: SortOption) => {
+    switch (option) {
+      case 'date-desc': return 'Newest First';
+      case 'date-asc': return 'Oldest First';
+      case 'severity-desc': return 'Severity (High → Low)';
+      case 'severity-asc': return 'Severity (Low → High)';
+      case 'status': return 'By Status';
+      default: return 'Sort';
+    }
+  };
 
   // Filter scan types based on auth status - GitHub only for authenticated users
   const availableScanTypes = user ? [
@@ -1125,7 +1165,41 @@ const ThreatDashboard = () => {
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button 
+                
+                {/* Sort dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 px-2 text-xs"
+                    >
+                      <ArrowUpDown className="w-3 h-3 mr-1" />
+                      {getSortLabel(sortOption)}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-popover border border-border w-44">
+                    <DropdownMenuLabel className="text-xs">Sort by</DropdownMenuLabel>
+                    {([
+                      { value: 'date-desc', label: 'Newest First' },
+                      { value: 'date-asc', label: 'Oldest First' },
+                      { value: 'severity-desc', label: 'Severity (High → Low)' },
+                      { value: 'severity-asc', label: 'Severity (Low → High)' },
+                      { value: 'status', label: 'By Status' },
+                    ] as { value: SortOption; label: string }[]).map((opt) => (
+                      <DropdownMenuItem 
+                        key={opt.value} 
+                        onClick={() => setSortOption(opt.value)}
+                        className={cn("text-xs", sortOption === opt.value && "bg-primary/10 text-primary")}
+                      >
+                        {opt.label}
+                        {sortOption === opt.value && <CheckCircle className="w-3 h-3 ml-auto" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
+                <Button
                   variant="outline" 
                   size="sm" 
                   className="h-7 px-2 text-xs" 
