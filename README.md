@@ -24,9 +24,6 @@
   This diagram illustrates the end-to-end architecture and operational flow of the AEGIS.ai platform, showing the path from raw input ingestion to database storage and agent-guided remediation.
 </p>
 
-### System Architecture and Data Flows
-
-The system architecture is organized into six functional modules:
 
 #### 1. Management Console
 The Management Console is a web user interface built on React and Vite. It contains the following modules:
