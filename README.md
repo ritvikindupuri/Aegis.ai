@@ -18,10 +18,11 @@
 
 ## System Architecture Overview
 
-![AEGIS.ai Full System Architecture](https://i.imgur.com/Uz5kbBa.png)
-
-**Figure 1 — AEGIS.ai Full-Stack Architecture:**  
-This diagram illustrates the end-to-end architecture and operational flow of the AEGIS.ai platform, showing the path from raw input ingestion to database storage and agent-guided remediation.
+<p align="center">
+  <img src="https://i.imgur.com/Uz5kbBa.png" alt="AEGIS.ai Full System Architecture"><br>
+  <strong>Figure 1 — AEGIS.ai Full-Stack Architecture:</strong><br>
+  This diagram illustrates the end-to-end architecture and operational flow of the AEGIS.ai platform, showing the path from raw input ingestion to database storage and agent-guided remediation.
+</p>
 
 ### System Architecture and Data Flows
 
