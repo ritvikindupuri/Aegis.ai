@@ -6,73 +6,81 @@
 
 **AEGIS.ai** is an AI-native security platform designed to accelerate secure development. It leverages a multi-agent architecture to provide real-time threat detection, automated vulnerability tracking, and intelligent security assistance. Unlike traditional static analysis tools, AEGIS uses LLMs to understand code context, significantly reducing false positives.
 
-### Key Capabilities
+#### Key Capabilities
 
--   ** Code Vulnerability Scanning**: Context-aware static analysis for SQLi, XSS, and more.
-    
--   ** GitHub Repository Scanning**: Full repository analysis with automated daily scheduled scans.
-    
--   ** Dependency Auditing**: Real-time NVD checks against `package.json` files.
-    
--   ** LLM Protection (Prompt Shield)**: Detects jailbreaks and prompt injection attacks.
-    
--   ** Specialized AI Agents**: Four distinct personas for Triage, Auditing, Architecture, and Ops.
-    
--   ** Dynamic Security Score**: Real-time 0-100 risk scoring based on unresolved vulnerabilities.
+* Code Vulnerability Scanning: Context-aware static analysis for SQLi, XSS, and logic flaws using the code-scanner Edge Function powered by Gemini 2.5 Flash.
+* GitHub Repository Scanning: Integrates with the GitHub Contents API via the github-scanner Edge Function to retrieve and inspect public repository files using Gemini 2.5 Flash.
+* Dependency Auditing: Performs checks against dependency configuration files, package.json, lock files, and manifests using NIST NVD CVE data.
+* LLM Protection: Features an LLM Shield to detect prompt injection, jailbreak attempts, and security policy violations.
+* AI Security Assistants: Operates four specialized AI agents (SENTINEL, CODEX, AEGIS, and ASSIST) utilizing NVD CVE and CISA KEV context.
+* Dynamic Security Score: Computes an aggregate security posture score from 0 to 100 based on unresolved vulnerabilities, stored in the security_stats table.
+* Scheduled Scans: Triggers automated daily repository scans at 9:00 AM UTC via the github-scanner Edge Function, logging history in the security_scans table.
 
--   ** Scheduled Scans**: Configure daily automated scans for your GitHub repositories with vulnerability tracking.
-    
-
-##  System Architecture Overview
+## System Architecture Overview
 
 ![AEGIS.ai Full System Architecture](https://i.imgur.com/Uz5kbBa.png)
 
 **Figure 1 — AEGIS.ai Full-Stack Architecture:**  
-This diagram illustrates the end-to-end architecture and operational flow of the AEGIS.ai platform, showcasing the path from raw input ingestion to automated reporting and AI-assisted remediation.
+This diagram illustrates the end-to-end architecture and operational flow of the AEGIS.ai platform, showing the path from raw input ingestion to database storage and agent-guided remediation.
 
-### System Architecture & Data Flows
+### System Architecture and Data Flows
 
-The system architecture is structured into six key operational blocks, coordinated via a modern React management console and a Supabase backend:
+The system architecture is organized into six functional modules:
 
-#### 1. Input Sources & Ingestion
-* **Source Code**: Users upload source code files directly (e.g., as ZIP archives) or provide a local directory path.
-* **Dependencies**: Scan agents locate package configuration files (`package.json`, lock files, and manifests) to perform package audit checks.
-* **LLM Shield**: Monitored prompts are sent through an LLM protection layer to detect prompt injection, jailbreaking, and other LLM-specific vulnerabilities.
-* **GitHub Repository**: Users connect public GitHub repositories directly to the platform for complete code scanning.
+#### 1. Management Console
+The Management Console is a web user interface built on React and Vite. It contains the following modules:
+* Dashboard: Displays the scan overview, risk distribution, and overall security score.
+* Scans: Displays execution history and statuses of all codebase scans.
+* Vulnerabilities: Enables browsing of detected security issues, severity ratings, remediation tips, and auto-fix code patches.
+* AI Assistant: A chat window connecting users to four specialized security agents.
+* Scheduled Scans: Configures daily GitHub repository scans (scheduled to execute at 9:00 AM UTC) or allows manual execution via the Run Now button.
+* Reports: Exports scanned vulnerability logs in CSV or JSON format.
+* Settings: Configures API keys and user preferences.
 
-#### 2. Scan Pipeline (Supabase Edge Functions)
-* **Code Scanner (`code-scanner` Edge Function)**:
-  1. Receives files, dependencies, and prompts from the ingestion layer.
-  2. Analyzes code content using **Gemini 2.5 Flash** to identify security patterns and vulnerabilities.
-  3. Queries the **NIST National Vulnerability Database (NVD) CVE API** and the **CISA Known Exploited Vulnerabilities (KEV)** catalog for real-time risk enrichment.
-  4. Generates structured findings with remediation guidelines and automated quick-fixes (`auto_fix`).
-* **GitHub Scanner (`github-scanner` Edge Function)**:
-  1. Fetches code asynchronously using the **GitHub Contents API**.
-  2. Analyzes files and manifests with **Gemini 2.5 Flash**.
-  3. Generates structured vulnerability findings and automatically suggests code patches.
+#### 2. Input Sources
+Four types of input files or texts are ingested into the scan pipeline:
+* Source Code: Source code files uploaded directly as ZIP archives or specified via local directory paths.
+* Dependencies: Package configuration files, including package.json, lock files, and manifests.
+* LLM Shield: User inputs or LLM prompts monitored to detect injection and jailbreak attempts.
+* GitHub Repository: Public GitHub repository URLs linked for code scan execution.
 
-#### 3. Data & Storage (Supabase PostgreSQL)
-All scanner results, configuration states, and analytics are persisted in Supabase across five core tables:
-* `security_scans`: Stores metadata, run histories, and status logs.
-* `vulnerabilities`: Contains details on detected bugs, severity levels, CVE mappings, CISA KEV flags, remediation advice, and `auto_fix` patches.
-* `security_stats`: Tracks historical trends and computes the dynamic security score (0-100).
-* `scheduled_scans`: Stores configurations for daily repository scanning schedules.
-* `chat_sessions`: Records dialogue history between users and the AI Security Assistants.
+#### 3. Scan Pipeline
+The pipeline runs on Supabase Edge Functions, divided into two dedicated components:
+* Code Scanner (code-scanner Edge Function):
+  1. Accepts source code, dependency manifests, or LLM Shield inputs.
+  2. Analyzes code content using the Gemini 2.5 Flash model.
+  3. Queries the NIST National Vulnerability Database (NVD) CVE API and CISA KEV catalog to enrich findings.
+  4. Generates vulnerability reports containing specific remediation steps and suggested auto_fix patches.
+* GitHub Scanner (github-scanner Edge Function):
+  1. Communicates with the remote repository via the GitHub Contents API.
+  2. Analyzes code structures and packages with the Gemini 2.5 Flash model.
+  3. Generates vulnerability findings and recommended remediation code patches.
 
-#### 4. Outputs & Dashboards
-* **CSV/JSON Export**: Allows security officers to download complete reports of scan findings.
-* **Security Score**: Computes and displays a dynamic 0-100 score in the UI to give teams immediate feedback on their code risk levels.
+#### 4. Data and Storage (Supabase PostgreSQL)
+All scan history, configurations, and conversation contexts are persisted in Supabase across five tables:
+* security_scans: Logs scan metadata, target details, timestamps, and execution statuses.
+* vulnerabilities: Stores detailed vulnerability records including severity, CVE IDs, CISA KEV association, remediation descriptions, and auto_fix patches.
+* security_stats: Tracks overall security score (0-100) and historical trend metrics.
+* scheduled_scans: Records cron jobs, target repository URLs, and scheduled run configurations.
+* chat_sessions: Persists session contexts and message history for the AI Security Assistant.
 
-#### 5. AI Security Assistant (Multi-Agent Ecosystem)
-Four specialized AI agents fetch context from the NVD/CISA KEV database and recent scan histories to answer questions and guide developers:
-* **SENTINEL (Gemini 2.5 Flash)**: Handles fast threat triaging, basic risk classification, and security education.
-* **CODEX (GPT-5)**: Performs in-depth code auditing, structural analysis, and deep-dive vulnerability investigations.
-* **AEGIS (GPT-5)**: Conducts strategic threat modeling, architectural reviews, and high-level risk assessment.
-* **ASSIST (Gemini 2.5 Flash)**: Provides general operational advice, security best practices, and general Q&A support.
+#### 5. Outputs
+The platform outputs data and metrics based on database states:
+* CSV Export: Generates a CSV file of all vulnerabilities.
+* JSON Export: Generates a JSON payload of scan findings.
+* Security Score: Computes an overall 0-100 score shown in the Management UI dashboard along with improvement recommendations.
 
-#### 6. Scheduled GitHub Scans
-* **Automation**: An active cron job triggers daily scans at `9:00 AM UTC`. Users can also trigger immediate updates using the "Run Now" action in the Management Console.
-* **Sync**: The schedule invokes the `github-scanner` Edge Function which scans target repositories, writes results to the database, and automatically updates the team's dashboard metrics.
+#### 6. AI Security Assistant (Multi-Agent Ecosystem)
+Four specialized security agents utilize NVD CVE, CISA KEV context, and user scan data to guide developers:
+* SENTINEL (Gemini 2.5 Flash): Dedicated to rapid triage, basic risk categorization, and threat explanation.
+* CODEX (GPT-5): Focuses on in-depth code auditing, logic vulnerability investigation, and structural reviews.
+* AEGIS (GPT-5): Conducts strategic threat modeling, architectural reviews, and high-level risk assessment.
+* ASSIST (Gemini 2.5 Flash): Provides general operational security support, best practice suggestions, and general Q&A support.
+
+#### 7. Scheduled GitHub Scans
+* Automatic Cron: The system runs automated scans every day at 9:00 AM UTC.
+* Manual Execution: A "Run Now" action in the Management Console triggers the github-scanner Edge Function immediately.
+* Database Write: The github-scanner Edge Function retrieves files from the GitHub Contents API, analyzes them, writes the new findings to the vulnerabilities and security_scans tables, and updates the security score in security_stats.
 
 
 ##  Features
