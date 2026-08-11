@@ -25,10 +25,54 @@
 
 ##  System Architecture Overview
 
-![AEGIS.ai Full System Architecture](https://i.imgur.com/VtiraIW.png)
+![AEGIS.ai Full System Architecture](https://i.imgur.com/Uz5kbBa.png)
 
 **Figure 1 — AEGIS.ai Full-Stack Architecture:**  
-This diagram illustrates the end-to-end architecture of the AEGIS.ai platform, including the React + Vite client layer, Supabase Edge Functions for application logic, PostgreSQL for persistence, the Lovable AI Gateway (Gemini 2.5 Flash & GPT-5), and real-time CVE enrichment via the NVD API.
+This diagram illustrates the end-to-end architecture and operational flow of the AEGIS.ai platform, showcasing the path from raw input ingestion to automated reporting and AI-assisted remediation.
+
+### System Architecture & Data Flows
+
+The system architecture is structured into six key operational blocks, coordinated via a modern React management console and a Supabase backend:
+
+#### 1. Input Sources & Ingestion
+* **Source Code**: Users upload source code files directly (e.g., as ZIP archives) or provide a local directory path.
+* **Dependencies**: Scan agents locate package configuration files (`package.json`, lock files, and manifests) to perform package audit checks.
+* **LLM Shield**: Monitored prompts are sent through an LLM protection layer to detect prompt injection, jailbreaking, and other LLM-specific vulnerabilities.
+* **GitHub Repository**: Users connect public GitHub repositories directly to the platform for complete code scanning.
+
+#### 2. Scan Pipeline (Supabase Edge Functions)
+* **Code Scanner (`code-scanner` Edge Function)**:
+  1. Receives files, dependencies, and prompts from the ingestion layer.
+  2. Analyzes code content using **Gemini 2.5 Flash** to identify security patterns and vulnerabilities.
+  3. Queries the **NIST National Vulnerability Database (NVD) CVE API** and the **CISA Known Exploited Vulnerabilities (KEV)** catalog for real-time risk enrichment.
+  4. Generates structured findings with remediation guidelines and automated quick-fixes (`auto_fix`).
+* **GitHub Scanner (`github-scanner` Edge Function)**:
+  1. Fetches code asynchronously using the **GitHub Contents API**.
+  2. Analyzes files and manifests with **Gemini 2.5 Flash**.
+  3. Generates structured vulnerability findings and automatically suggests code patches.
+
+#### 3. Data & Storage (Supabase PostgreSQL)
+All scanner results, configuration states, and analytics are persisted in Supabase across five core tables:
+* `security_scans`: Stores metadata, run histories, and status logs.
+* `vulnerabilities`: Contains details on detected bugs, severity levels, CVE mappings, CISA KEV flags, remediation advice, and `auto_fix` patches.
+* `security_stats`: Tracks historical trends and computes the dynamic security score (0-100).
+* `scheduled_scans`: Stores configurations for daily repository scanning schedules.
+* `chat_sessions`: Records dialogue history between users and the AI Security Assistants.
+
+#### 4. Outputs & Dashboards
+* **CSV/JSON Export**: Allows security officers to download complete reports of scan findings.
+* **Security Score**: Computes and displays a dynamic 0-100 score in the UI to give teams immediate feedback on their code risk levels.
+
+#### 5. AI Security Assistant (Multi-Agent Ecosystem)
+Four specialized AI agents fetch context from the NVD/CISA KEV database and recent scan histories to answer questions and guide developers:
+* **SENTINEL (Gemini 2.5 Flash)**: Handles fast threat triaging, basic risk classification, and security education.
+* **CODEX (GPT-5)**: Performs in-depth code auditing, structural analysis, and deep-dive vulnerability investigations.
+* **AEGIS (GPT-5)**: Conducts strategic threat modeling, architectural reviews, and high-level risk assessment.
+* **ASSIST (Gemini 2.5 Flash)**: Provides general operational advice, security best practices, and general Q&A support.
+
+#### 6. Scheduled GitHub Scans
+* **Automation**: An active cron job triggers daily scans at `9:00 AM UTC`. Users can also trigger immediate updates using the "Run Now" action in the Management Console.
+* **Sync**: The schedule invokes the `github-scanner` Edge Function which scans target repositories, writes results to the database, and automatically updates the team's dashboard metrics.
 
 
 ##  Features
@@ -64,13 +108,13 @@ A dedicated firewall for Generative AI inputs, capable of detecting sophisticate
 
 ### 5\. Multi-Agent Ecosystem
 
--   **SENTINEL (Gemini 2.5)**: Rapid triage and education.
+-   **SENTINEL (Gemini 2.5 Flash)**: Rapid triage and education.
     
 -   **CODEX (GPT-5)**: Deep code audits and logic analysis.
     
 -   **AEGIS (GPT-5)**: Strategic architecture and threat intel.
     
--   **ASSIST (Gemini 2.5)**: General operational support.
+-   **ASSIST (Gemini 2.5 Flash)**: General operational support.
     
 
 ### 6\. Dynamic Risk Scoring
