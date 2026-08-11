@@ -8,13 +8,13 @@
 
 #### Key Capabilities
 
-* Code Vulnerability Scanning: Context-aware static analysis for SQLi, XSS, and logic flaws using the code-scanner Edge Function powered by Gemini 2.5 Flash.
-* GitHub Repository Scanning: Integrates with the GitHub Contents API via the github-scanner Edge Function to retrieve and inspect public repository files using Gemini 2.5 Flash.
-* Dependency Auditing: Performs checks against dependency configuration files, package.json, lock files, and manifests using NIST NVD CVE data.
-* LLM Protection: Features an LLM Shield to detect prompt injection, jailbreak attempts, and security policy violations.
-* AI Security Assistants: Operates four specialized AI agents (SENTINEL, CODEX, AEGIS, and ASSIST) utilizing NVD CVE and CISA KEV context.
-* Dynamic Security Score: Computes an aggregate security posture score from 0 to 100 based on unresolved vulnerabilities, stored in the security_stats table.
-* Scheduled Scans: Triggers automated daily repository scans at 9:00 AM UTC via the github-scanner Edge Function, logging history in the security_scans table.
+* **Code Vulnerability Scanning**: Context-aware static analysis for SQLi, XSS, and logic flaws using the code-scanner Edge Function powered by Gemini 2.5 Flash.
+* **GitHub Repository Scanning**: Integrates with the GitHub Contents API via the github-scanner Edge Function to retrieve and inspect public repository files using Gemini 2.5 Flash.
+* **Dependency Auditing**: Performs checks against dependency configuration files, package.json, lock files, and manifests using NIST NVD CVE data.
+* **LLM Protection**: Features an LLM Shield to detect prompt injection, jailbreak attempts, and security policy violations.
+* **AI Security Assistants**: Operates four specialized AI agents (SENTINEL, CODEX, AEGIS, and ASSIST) utilizing NVD CVE and CISA KEV context.
+* **Dynamic Security Score**: Computes an aggregate security posture score from 0 to 100 based on unresolved vulnerabilities, stored in the security_stats table.
+* **Scheduled Scans**: Triggers automated daily repository scans at 9:00 AM UTC via the github-scanner Edge Function, logging history in the security_scans table.
 
 ## System Architecture Overview
 
