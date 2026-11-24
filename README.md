@@ -14,7 +14,7 @@
 * **LLM Protection**: Features an LLM Shield to detect prompt injection, jailbreak attempts, and security policy violations.
 * **AI Security Assistants**: Operates four specialized AI agents (SENTINEL, CODEX, AEGIS, and ASSIST) utilizing NVD CVE and CISA KEV context.
 * **Dynamic Security Score**: Computes an aggregate security posture score from 0 to 100 based on unresolved vulnerabilities, stored in the security_stats table.
-* **Scheduled Scans**: Triggers automated daily repository scans at 9:00 AM UTC via the github-scanner Edge Function, logging history in the security_scans table.
+* **Scheduled Scans**: Add repositories to a daily watch list; the scheduled-github-scan Edge Function scans them when triggered by a cron job (configure pg_cron or an external scheduler), logging history in the security_scans table.
 
 ## System Architecture Overview
 
@@ -31,7 +31,7 @@ The Management Console is a web user interface built on React and Vite. It conta
 * Scans: Displays execution history and statuses of all codebase scans.
 * Vulnerabilities: Enables browsing of detected security issues, severity ratings, remediation tips, and auto-fix code patches.
 * AI Assistant: A chat window connecting users to four specialized security agents.
-* Scheduled Scans: Configures daily GitHub repository scans (scheduled to execute at 9:00 AM UTC) or allows manual execution via the Run Now button.
+* Scheduled Scans: Configures a daily GitHub repository watch list (runs when the scheduled-github-scan function is triggered by your cron job) or allows manual execution via the Run Now button.
 * Reports: Exports scanned vulnerability logs in CSV or JSON format.
 * Settings: Configures API keys and user preferences.
 
@@ -59,7 +59,7 @@ All scan history, configurations, and conversation contexts are persisted in Sup
 * security_scans: Logs scan metadata, target details, timestamps, and execution statuses.
 * vulnerabilities: Stores detailed vulnerability records including severity, CVE IDs, CISA KEV association, remediation descriptions, and auto_fix patches.
 * security_stats: Tracks overall security score (0-100) and historical trend metrics.
-* scheduled_scans: Records cron jobs, target repository URLs, and scheduled run configurations.
+* scheduled_scans: Records watch-list target repository URLs and scheduled run configurations.
 * chat_sessions: Persists session contexts and message history for the AI Security Assistant.
 
 #### 5. Outputs
@@ -76,7 +76,7 @@ Four specialized security agents utilize NVD CVE, CISA KEV context, and user sca
 * ASSIST (Gemini 2.5 Flash): Provides general operational security support, best practice suggestions, and general Q&A support.
 
 #### 7. Scheduled GitHub Scans
-* Automatic Cron: The system runs automated scans every day at 9:00 AM UTC.
+* Cron Trigger: The scheduled-github-scan function scans all active watch-list repositories when invoked; schedule it daily with pg_cron or an external scheduler (no cron job is included in this repo).
 * Manual Execution: A "Run Now" action in the Management Console triggers the github-scanner Edge Function immediately.
 * Database Write: The github-scanner Edge Function retrieves files from the GitHub Contents API, analyzes them, writes the new findings to the vulnerabilities and security_scans tables, and updates the security score in security_stats.
 
@@ -99,7 +99,7 @@ Scan entire public GitHub repositories for security vulnerabilities. AEGIS analy
 
 ### 3\. Scheduled Daily Scans
 
-Configure automated daily scans for your important repositories. AEGIS will automatically scan your configured repositories every day and track vulnerability trends over time.
+Configure automated daily scans for your important repositories. Once a daily cron trigger is configured for the scheduled-github-scan function, AEGIS scans your configured repositories every day and tracks vulnerability trends over time.
 
 **Features:**
 - Add/remove repositories for daily monitoring
