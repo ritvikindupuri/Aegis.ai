@@ -1,3 +1,4 @@
+import AegisLogo from "@/components/AegisLogo";
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -171,13 +172,7 @@ const Auth = () => {
       {/* Header */}
       <header className="p-4 border-b border-border">
         <a href="/" className="flex items-center gap-2.5 w-fit">
-          <div className="relative w-8 h-8">
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary via-primary/80 to-primary/60 opacity-90" />
-            <div className="absolute inset-[2px] rounded-[6px] bg-background/95" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-primary font-black text-sm tracking-tighter">Æ</span>
-            </div>
-          </div>
+          <AegisLogo className="w-8 h-8" />
           <span className="text-lg font-bold tracking-tight text-foreground">
             AEGIS<span className="text-primary font-light">.ai</span>
           </span>

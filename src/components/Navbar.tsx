@@ -1,3 +1,4 @@
+import AegisLogo from "@/components/AegisLogo";
 import { useState } from 'react';
 import { Menu, X, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -28,13 +29,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
           <a href="/" className="flex items-center gap-2.5 group">
-            <div className="relative w-8 h-8">
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary via-primary/80 to-primary/60 opacity-90" />
-              <div className="absolute inset-[2px] rounded-[6px] bg-background/95" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-primary font-black text-sm tracking-tighter">Æ</span>
-              </div>
-            </div>
+            <AegisLogo className="w-8 h-8" />
             <span className="text-lg font-bold tracking-tight text-foreground">
               AEGIS<span className="text-primary font-light">.ai</span>
             </span>
