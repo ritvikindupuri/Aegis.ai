@@ -7,8 +7,8 @@ interface AegisLogoProps {
 }
 
 /**
- * AEGIS.ai mark: a violet shield holding code brackets around an AI spark
- * (AI-generated fixes), with an amber alert badge on the top-right edge
+ * AEGIS.ai mark: a violet shield holding code brackets around an AI chip
+ * (AI analysis of code), with an amber alert badge on the top-right edge
  * (live NVD / CISA KEV exploited-CVE enrichment).
  */
 const AegisLogo = ({ className, compact = false }: AegisLogoProps) => {
@@ -50,9 +50,13 @@ const AegisLogo = ({ className, compact = false }: AegisLogoProps) => {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        <rect x="26.5" y="26.5" width="11" height="11" rx="2" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="30" y="30" width="4" height="4" rx="0.8" fill="#fff" />
         <path
-          d="M32 24.5c.9 4.6 2.9 6.6 7.5 7.5-4.6.9-6.6 2.9-7.5 7.5-.9-4.6-2.9-6.6-7.5-7.5 4.6-.9 6.6-2.9 7.5-7.5Z"
-          fill="#fff"
+          d="M29.8 26.5v-2.6M34.2 26.5v-2.6M29.8 37.5v2.6M34.2 37.5v2.6M26.5 29.8h-2.2M26.5 34.2h-2.2M37.5 29.8h2.2M37.5 34.2h2.2"
+          stroke="#fff"
+          strokeWidth="2"
+          strokeLinecap="round"
         />
       </g>
       <circle cx="50" cy="14" r={badgeR} fill="#F59E0B" />
